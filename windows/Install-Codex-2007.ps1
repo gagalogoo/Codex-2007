@@ -42,7 +42,8 @@ try {
         src = @('injector.mjs', 'token-stats.mjs', 'skin-runtime.js', 'skin.css')
         windows = @(
             'Common.ps1', 'Start-Codex-2007.ps1',
-            'Restore-Codex.ps1', 'Install-Codex-2007.ps1'
+            'Restore-Codex.ps1', 'Install-Codex-2007.ps1',
+            'Install-Codex-2007.cmd', 'Start-Codex-2007.cmd', 'Restore-Codex.cmd'
         )
         docs = @(
             'INSTALLATION.md', 'USAGE.md', 'ARCHITECTURE.md',

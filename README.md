@@ -25,7 +25,7 @@ Windows Codex 桌面端的 QQ 2007 复古皮肤。不改官方安装包，下载
 3. 解压到任意目录，例如 `D:\Codex-2007`
 4. 进入解压后的文件夹（能看到 `windows` 和 `README.md` 这一层）
 5. 在文件夹空白处按住 **Shift** 再右键，选择 **在此处打开 PowerShell 窗口**
-6. 粘贴下面这一行，回车：
+6. 可以直接双击 `windows\Install-Codex-2007.cmd`；也可粘贴下面这一行回车：
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\Install-Codex-2007.ps1
@@ -75,6 +75,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\Restore-Codex.
 
 ## 常见问题
 
+- 报「表达式或语句中包含意外的标记」：请重新下载仓库最新 ZIP（已修复 PowerShell 5.1 中文编码），或直接双击 `windows\Install-Codex-2007.cmd`。
 - 提示找不到 `node`：先安装 Node.js 22+，重新打开 PowerShell 再装。
 - 装完还是官方外观：请用 **Codex 2007** 快捷方式启动，不要用官方图标。
 - 安装失败 / 设置页异常：看 [故障排查](docs/TROUBLESHOOTING.md)。
