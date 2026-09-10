@@ -1,0 +1,1995 @@
+(() => {
+  'use strict';
+
+  const STATE_KEY = '__CODEX_2007_STATE__';
+  const CONFIG_KEY = '__CODEX_2007_CONFIG__';
+  const DISABLED_KEY = 'codex-2007-disabled';
+  const WEEKLY_QUOTA_KEY = 'codex-2007-weekly-quota';
+  const STYLE_ID = 'codex-2007-style';
+  const config = window[CONFIG_KEY];
+
+  if (!config || typeof config.css !== 'string' || !config.assets) {
+    return { pass: false, reason: 'missing-config' };
+  }
+  if (config.forceEnable) localStorage.removeItem(DISABLED_KEY);
+  else if (localStorage.getItem(DISABLED_KEY) === '1') return { pass: false, reason: 'disabled-by-user' };
+
+  if (window[STATE_KEY] && typeof window[STATE_KEY].cleanup === 'function') {
+    window[STATE_KEY].cleanup({ restoreText: true });
+  }
+
+  const state = {
+    version: config.version || '1.0.0',
+    observer: null,
+    sidebarAnimatingUntil: 0,
+    sidebarCollapseExpected: null,
+    timers: new Set(),
+    textRenames: new Map(),
+    attributeRenames: new Map(),
+    lastAgentState: null,
+    reconcileQueued: false,
+    toastTimer: null,
+    tokenStats: config.tokenStats || null,
+    qqLevel: null,
+    nativeSendButton: null,
+    nativeModelButton: null,
+    nativeAttachButton: null,
+    nativeAccessButton: null,
+    nativeContextIndicator: null,
+    nativeSearchButton: null,
+    nativeProfileButton: null,
+    weeklyQuota: null,
+    settingsPaused: false,
+    settingsPoller: null,
+    refreshSettingsTheme: null,
+    homeAnchor: null,
+    homeWelcomeTop: null,
+    nativeEnvHost: null,
+  };
+  window[STATE_KEY] = state;
+
+  const byId = (id) => document.getElementById(id);
+  const firstMatch = (selectors) => {
+    for (const selector of selectors) {
+      const node = document.querySelector(selector);
+      if (node) return node;
+    }
+    return null;
+  };
+  const stampCompatSelectors = () => {
+    const main = firstMatch(['main.main-surface', 'main[class*="MainContentSurface"]', 'main']);
+    if (main) main.classList.add('main-surface');
+    const composer = firstMatch(['.composer-surface-chrome', '[class*="ComposerLayoutRoot"]']);
+    if (composer) composer.classList.add('composer-surface-chrome');
+    const mainHeader = main?.querySelector(':scope > header.app-header-tint')
+      || main?.querySelector(':scope > header.h-toolbar')
+      || main?.querySelector(':scope > header');
+    if (mainHeader) mainHeader.classList.add('app-header-tint');
+    const root = document.getElementById('root');
+    const topbar = Array.from(root?.children || []).find((child) => (
+      child.classList?.contains('app-header-tint')
+      || (child.classList?.contains('h-toolbar') && child.classList?.contains('draggable') && !(main && main.contains(child)))
+    ));
+    if (topbar) topbar.classList.add('app-header-tint');
+    return { main, composer, mainHeader, topbar };
+  };
+  const normalize = (value) => (value || '').replace(/\s+/g, ' ').trim();
+  const setText = (node, value) => {
+    if (node && node.textContent !== value) node.textContent = value;
+  };
+  const create = (tag, className, text) => {
+    const element = document.createElement(tag);
+    if (className) element.className = className;
+    if (typeof text === 'string') element.textContent = text;
+    return element;
+  };
+  const makeImage = (source, alt, className) => {
+    const image = create('img', className || '');
+    image.src = source;
+    image.alt = alt;
+    image.draggable = false;
+    return image;
+  };
+  const makeMotionStageImage = (animatedSource, staticSource, alt) => {
+    const stage = create('span', 'qq2007-motion-stage');
+    const animated = makeImage(animatedSource || staticSource, alt, 'qq2007-motion-stage-animated');
+    animated.dataset.qq2007MotionStage = 'animated';
+    const still = makeImage(staticSource, alt, 'qq2007-motion-stage-static');
+    still.dataset.qq2007MotionStage = 'static';
+    stage.append(animated, still);
+    return stage;
+  };
+  const makeClassicMessageActionIcon = (kind) => {
+    const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    icon.setAttribute('viewBox', '0 0 18 18');
+    icon.setAttribute('width', '18');
+    icon.setAttribute('height', '18');
+    icon.setAttribute('focusable', 'false');
+    icon.setAttribute('aria-hidden', 'true');
+    icon.classList.add('qq2007-message-action-icon');
+    if (kind === 'like' || kind === 'dislike') {
+      icon.innerHTML = `
+        <g${kind === 'dislike' ? ' transform="translate(0 18) scale(1 -1)"' : ''}>
+          <path d="M6.1 8.1c1.25-.72 2.18-1.76 2.65-3.14.24-.72.54-1.86 1.42-1.86.91 0 1.3.77 1.3 1.61 0 .72-.28 1.6-.55 2.26h2.48c1.23 0 2.1 1.02 1.84 2.2l-1.04 4.72c-.23 1.04-1.12 1.78-2.18 1.78H6.1Z" fill="${kind === 'like' ? '#ffe486' : '#d9ecfa'}" stroke="#397aaa" stroke-width="1.15" stroke-linejoin="round"/>
+          <path d="M2.1 8.35h3.98v7.42H2.1c-.46 0-.83-.37-.83-.83V9.18c0-.46.37-.83.83-.83Z" fill="#e6f4ff" stroke="#397aaa" stroke-width="1.15"/>
+          <path d="M2.55 13.55h2.1" stroke="#84b4d6" stroke-width=".9" stroke-linecap="round"/>
+        </g>`;
+    } else if (kind === 'copy') {
+      icon.innerHTML = `
+        <rect x="5.15" y="2.1" width="9.25" height="10.7" rx="1.15" fill="#f7fcff" stroke="#397aaa" stroke-width="1.1"/>
+        <path d="M7.2 5h5.1M7.2 7.35h5.1M7.2 9.7h3.7" fill="none" stroke="#8db8d8" stroke-width=".9" stroke-linecap="round"/>
+        <path d="M4.2 5.15H3.6c-.75 0-1.35.6-1.35 1.35v7.95c0 .75.6 1.35 1.35 1.35h6.75c.75 0 1.35-.6 1.35-1.35v-.6" fill="#dceffc" stroke="#397aaa" stroke-width="1.1" stroke-linecap="round"/>
+      `;
+    } else {
+      icon.innerHTML = `
+        <circle cx="4" cy="4.5" r="1.65" fill="#e8f5ff" stroke="#397aaa" stroke-width="1.1"/>
+        <circle cx="4" cy="13.5" r="1.65" fill="#e8f5ff" stroke="#397aaa" stroke-width="1.1"/>
+        <circle cx="14" cy="9" r="1.65" fill="#ffe486" stroke="#397aaa" stroke-width="1.1"/>
+        <path d="M5.55 5.25 12.3 8.3M5.55 12.75l6.75-3.05" fill="none" stroke="#397aaa" stroke-width="1.45" stroke-linecap="round"/>
+      `;
+    }
+    return icon;
+  };
+  const makeSettingsTitle = () => {
+    const title = create('div', 'qq2007-settings-title');
+    title.id = 'qq2007-settings-title';
+    title.setAttribute('aria-hidden', 'true');
+    title.appendChild(makeImage(config.assets.penguin2007, '', 'qq2007-settings-title-icon'));
+    title.appendChild(create('span', '', 'Codex 2007 - 设置'));
+    return title;
+  };
+  const isVisible = (element) => {
+    if (!(element instanceof Element)) return false;
+    const rectangle = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    return rectangle.width > 0 && rectangle.height > 0
+      && style.visibility !== 'hidden' && style.display !== 'none';
+  };
+  const findSettingsSearch = (root = document.getElementById('root')) => Array.from(
+    root?.querySelectorAll('input, textarea, [contenteditable="true"]') || [],
+  ).find((node) => /搜索设置|search settings/i.test(
+    `${node.getAttribute('placeholder') || ''} ${node.getAttribute('aria-label') || ''}`,
+  ));
+  // The settings search is a stable, surface-specific native marker. Recent
+  // Codex builds hydrate “Back to app” through different element types, so
+  // requiring it to remain a button/link makes the watcher misclassify the
+  // settings page and destructively re-bootstrap the normal task layout.
+  const isSettingsSurface = () => Boolean(findSettingsSearch());
+  const nativeApprovalDecisionButtons = () => Array.from(document.querySelectorAll('button')).filter((button) => (
+    !button.closest('[id^="qq2007-"]') && isVisible(button)
+  )).map((button) => normalize(button.textContent));
+  const hasNativeApprovalSurface = () => {
+    const decisions = nativeApprovalDecisionButtons();
+    return decisions.some((label) => /^(允许一次|允许|approve once|approve|allow once)$/i.test(label))
+      && decisions.some((label) => /^(拒绝|deny|reject|not now)$/i.test(label));
+  };
+  const loadWeeklyQuota = () => {
+    try {
+      const cached = JSON.parse(sessionStorage.getItem(WEEKLY_QUOTA_KEY) || 'null');
+      if (!cached || cached.period !== '1周' || !Number.isFinite(cached.percentage)) return null;
+      if (!Number.isFinite(cached.capturedAt) || Date.now() - cached.capturedAt > 6 * 60 * 60 * 1000) return null;
+      return { period: '1周', percentage: Math.max(0, Math.min(100, Math.round(cached.percentage))) };
+    } catch {
+      return null;
+    }
+  };
+  const persistWeeklyQuota = (quota) => {
+    try {
+      sessionStorage.setItem(WEEKLY_QUOTA_KEY, JSON.stringify({ ...quota, capturedAt: Date.now() }));
+    } catch {
+      // The live display still works if session storage is unavailable.
+    }
+  };
+  state.weeklyQuota = loadWeeklyQuota();
+  const setTimer = (callback, delay) => {
+    const timer = window.setTimeout(() => {
+      state.timers.delete(timer);
+      callback();
+    }, delay);
+    state.timers.add(timer);
+    return timer;
+  };
+  const clearManagedTimers = () => {
+    for (const timer of state.timers) {
+      window.clearTimeout(timer);
+      window.clearInterval(timer);
+    }
+    state.timers.clear();
+    if (state.toastTimer) window.clearTimeout(state.toastTimer);
+    state.toastTimer = null;
+  };
+
+  const findButton = ({ aria = [], text = [], within = document }) => {
+    const buttons = Array.from(within.querySelectorAll('button, [role="button"]'));
+    return buttons.find((button) => {
+      if (button.closest('[id^="qq2007-"]')) return false;
+      if (!isVisible(button)) return false;
+      const ariaLabel = normalize(button.getAttribute('aria-label'));
+      const buttonText = normalize(button.textContent);
+      return aria.some((pattern) => pattern.test(ariaLabel))
+        || text.some((pattern) => pattern.test(buttonText));
+    }) || null;
+  };
+
+  const nativeActions = {
+    newTask: () => findButton({
+      aria: [/新建任务/i, /新对话/i, /new task/i, /new chat/i, /new conversation/i],
+      text: [/^新建任务$/i, /^新对话$/i, /^new task$/i, /^new chat$/i, /^new conversation$/i],
+    }),
+    scheduled: () => findButton({
+      aria: [/已安排/i, /定时安排/i, /scheduled/i],
+      text: [/^已安排$/i, /^定时安排$/i, /^scheduled$/i],
+    }),
+    plugins: () => findButton({
+      aria: [/插件/i, /plugins?/i],
+      text: [/^插件$/i, /^plugins?$/i],
+    }),
+    sites: () => findButton({
+      aria: [/站点/i, /sites?/i],
+      text: [/^站点$/i, /^sites?$/i],
+    }),
+    pullRequests: () => findButton({
+      aria: [/拉取请求/i, /pull requests?/i],
+      text: [/^拉取请求$/i, /^pull requests?$/i],
+    }),
+    projects: () => findButton({
+      aria: [/项目侧边栏选项/i, /添加新项目/i, /projects?/i],
+      text: [/^项目$/i, /^projects?$/i],
+    }),
+    search: () => (state.nativeSearchButton?.isConnected ? state.nativeSearchButton : findButton({
+      aria: [/^搜索$/i, /^搜索好友$/i, /^search$/i],
+    })),
+    profile: () => (state.nativeProfileButton?.isConnected ? state.nativeProfileButton : findButton({
+      aria: [/个人资料/i, /profile/i, /账户/i, /account/i],
+    })),
+    commit: () => findButton({
+      aria: [/commit/i, /提交/i, /^发送消息$/i],
+      text: [/^commit$/i, /^提交$/i, /^发送消息$/i],
+    }),
+  };
+
+  const focusComposer = () => {
+    const input = document.querySelector(
+      '.composer-surface-chrome textarea, .composer-surface-chrome [contenteditable="true"], textarea, [contenteditable="true"]',
+    );
+    if (!(input instanceof HTMLElement)) return false;
+    input.focus();
+    return true;
+  };
+  const invoke = (action, fallback) => {
+    const target = typeof action === 'function' ? action() : null;
+    if (target instanceof HTMLElement) {
+      target.click();
+      return true;
+    }
+    return typeof fallback === 'function' ? Boolean(fallback()) : false;
+  };
+
+  const setAssetVariables = () => {
+    const style = document.documentElement.style;
+    style.setProperty('--qq2007-title-bg', `url("${config.assets.titleBg}")`);
+    style.setProperty('--qq2007-toolbar-bg', `url("${config.assets.toolbarBg}")`);
+    style.setProperty('--qq2007-panel-header-bg', `url("${config.assets.panelHeaderBg}")`);
+    style.setProperty('--qq2007-status-bg', `url("${config.assets.statusBg}")`);
+    style.setProperty('--qq2007-send-bg', `url("${config.assets.sendButton}")`);
+    style.setProperty('--qq2007-folder-bg', `url("${config.assets.folderIcon}")`);
+    style.setProperty('--qq2007-thread-bg', `url("${config.assets.toolChat}")`);
+    style.setProperty('--qq2007-composer-attach-bg', `url("${config.assets.composerAttach}")`);
+    style.setProperty('--qq2007-shield-bg', `url("${config.assets.shield}")`);
+  };
+  const installStyle = () => {
+    byId(STYLE_ID)?.remove();
+    const style = create('style');
+    style.id = STYLE_ID;
+    style.textContent = config.css;
+    (document.head || document.documentElement).appendChild(style);
+  };
+
+  const readSessionTitle = () => {
+    const main = document.querySelector('main.main-surface');
+    const selectors = [
+      'header h1', 'header h2', 'header [data-slot="title"]',
+      '[aria-current="page"]', '[data-active="true"]',
+    ];
+    for (const selector of selectors) {
+      const nodes = Array.from((selector.startsWith('header') ? main : document)?.querySelectorAll?.(selector) || []);
+      for (const node of nodes) {
+        if (node.closest('[id^="qq2007-"]')) continue;
+        const text = normalize(node.textContent);
+        if (text && text.length >= 2 && text.length <= 80 && !/^(Codex|我的好友)$/i.test(text)) return text;
+      }
+    }
+    const documentTitle = normalize(document.title).replace(/\s*[-–—]\s*Codex.*$/i, '');
+    return documentTitle && !/^Codex$/i.test(documentTitle) ? documentTitle : '新建任务';
+  };
+
+  const makeWindowTitle = () => {
+    const title = create('div');
+    title.id = 'qq2007-window-title';
+    const identity = create('div', 'qq2007-title-identity');
+    identity.appendChild(makeImage(config.assets.penguin2007, 'Codex企鹅'));
+    const text = create('span', '', 'Codex 2007 - 新建任务');
+    text.dataset.qqSessionTitle = 'true';
+    identity.appendChild(text);
+    // Electron/Windows owns the caption glyphs and hit targets outside the
+    // page DOM. Keep this layer clear of that reserved region: renderer-only
+    // imagery cannot replace the native glyphs and would create duplicates.
+    title.appendChild(identity);
+    return title;
+  };
+
+  const addToolButton = (container, definition) => {
+    const button = create('button', 'qq2007-tool-button');
+    button.type = 'button';
+    button.title = definition.title;
+    button.setAttribute('aria-label', definition.title);
+    button.dataset.nativeAction = definition.key;
+    button.appendChild(makeImage(config.assets[definition.asset], ''));
+    button.appendChild(create('span', '', definition.label));
+    button.addEventListener('click', () => invoke(definition.action, definition.fallback));
+    container.appendChild(button);
+    return button;
+  };
+
+  const makeToolbar = () => {
+    const toolbar = create('nav');
+    toolbar.id = 'qq2007-toolbar';
+    toolbar.setAttribute('aria-label', 'Codex 2007 功能工具栏');
+    const actions = [
+      { key: 'new-task', label: '新对话', title: '新对话', asset: 'toolNew', action: nativeActions.newTask, fallback: focusComposer },
+      { key: 'scheduled', label: '定时安排', title: '打开定时安排', asset: 'toolScheduled', action: nativeActions.scheduled },
+      { key: 'plugins', label: '插件', title: '打开插件', asset: 'toolPlugins', action: nativeActions.plugins },
+      { key: 'sites', label: '站点', title: '打开站点', asset: 'toolSites', action: nativeActions.sites },
+      { key: 'pull-requests', label: '拉取请求', title: '打开拉取请求', asset: 'toolPullRequests', action: nativeActions.pullRequests },
+      { key: 'chat', label: '聊天', title: '聚焦当前聊天输入框', asset: 'toolChat', action: null, fallback: focusComposer },
+    ];
+    for (const definition of actions) addToolButton(toolbar, definition);
+    return toolbar;
+  };
+
+  const makeLeftHeader = () => {
+    const header = create('button', 'qq2007-left-header');
+    header.id = 'qq2007-left-header';
+    header.type = 'button';
+    header.title = 'Codex 用户资料';
+    header.appendChild(makeImage(config.assets.penguin2007, 'Codex企鹅'));
+    header.appendChild(create('strong', '', 'Codex'));
+    header.appendChild(makeImage(config.assets.caret, '', 'qq2007-left-caret'));
+    header.addEventListener('click', () => invoke(nativeActions.profile));
+    return header;
+  };
+
+  const makeLeftProfile = () => {
+    const profile = create('div');
+    profile.id = 'qq2007-left-profile';
+    const user = create('button', 'qq2007-left-user');
+    user.id = 'qq2007-left-user';
+    user.type = 'button';
+    user.title = '打开 Codex 个人资料';
+    const avatar = makeImage(config.assets.garyAvatarAnimated || config.assets.garyAvatar || config.assets.penguin2007, 'Gary');
+    avatar.dataset.qq2007GaryAvatar = 'true';
+    user.appendChild(avatar);
+    const copy = create('span', 'qq2007-left-user-copy');
+    const nameRow = create('span', 'qq2007-left-user-name');
+    nameRow.appendChild(create('strong', '', 'Gary'));
+    const level = create('span', 'qq2007-level-badge', 'LV.--');
+    level.dataset.qqLevel = 'left-badge';
+    nameRow.appendChild(level);
+    copy.appendChild(nameRow);
+    const meta = create('span', 'qq2007-left-user-meta');
+    const statusIcon = makeImage(config.assets.onlineIcon, '', 'qq2007-status-icon');
+    statusIcon.dataset.qqAgentDot = 'left';
+    const status = create('span', 'qq2007-left-user-online', '在线');
+    status.dataset.qqAgentStatus = 'left';
+    const signature = create('span', 'qq2007-left-user-signature', '别迷恋哥，哥只是个传说');
+    meta.append(statusIcon, status, signature);
+    copy.appendChild(meta);
+    user.appendChild(copy);
+    user.addEventListener('click', () => invoke(nativeActions.profile));
+
+    const help = create('button', 'qq2007-left-help', '?');
+    help.type = 'button';
+    help.tabIndex = -1;
+    help.title = '打开帮助菜单';
+    help.setAttribute('aria-label', '打开帮助菜单');
+    help.setAttribute('aria-hidden', 'true');
+    profile.append(user, help);
+    return profile;
+  };
+
+  const makeMainTitle = () => {
+    const title = create('div', 'qq2007-main-title');
+    title.id = 'qq2007-main-title';
+    title.appendChild(makeImage(config.assets.toolNew, ''));
+    const text = create('strong', '', '新建任务');
+    text.dataset.qqMainTitle = 'true';
+    title.appendChild(text);
+    return title;
+  };
+
+  const makeHomeWelcome = () => {
+    const welcome = create('section', 'qq2007-home-welcome');
+    welcome.id = 'qq2007-home-welcome';
+    welcome.setAttribute('aria-label', 'Codex 2007 新建任务欢迎区');
+    const header = create('div', 'qq2007-home-welcome-header');
+    header.appendChild(makeImage(config.assets.penguin2007, 'Codex 企鹅'));
+    header.appendChild(create('strong', '', 'Codex 2007 服务台 · Codex 小蓝'));
+    const status = create('span', 'qq2007-home-welcome-status', '在线');
+    status.setAttribute('aria-label', 'Codex 小蓝在线');
+    header.appendChild(status);
+    const body = create('div', 'qq2007-home-welcome-body');
+    const copy = create('div', 'qq2007-home-welcome-copy');
+    copy.appendChild(create('strong', '', '叮咚！需求投递成功，今天也把 Bug 安排明白。'));
+    copy.appendChild(create('span', '', '点一张任务卡开工，或把你的需求直接丢进下面的聊天框。'));
+    copy.appendChild(create('em', '', '今日心情：不写 Bug，只写解决方案。'));
+    const whisper = create('div', 'qq2007-home-welcome-whisper');
+    whisper.appendChild(create('strong', '', '小蓝悄悄话：'));
+    whisper.appendChild(create('span', '', '目标说清楚，我就能稳稳接住。'));
+    const bot = makeImage(config.assets.botStage, 'Codex 小蓝');
+    bot.className = 'qq2007-home-welcome-bot';
+    body.append(copy, whisper, bot);
+    welcome.append(header, body);
+    return welcome;
+  };
+
+  const homeTaskPresentation = (text) => {
+    if (/探索并理解代码/.test(text)) return { kind: 'explore', asset: config.assets.toolSites, title: '代码侦查局', detail: '先把项目的脾气摸清楚' };
+    if (/构建新功能/.test(text)) return { kind: 'build', asset: config.assets.toolNew, title: '造物研究所', detail: '新功能，马上开工' };
+    if (/审查代码/.test(text)) return { kind: 'review', asset: config.assets.toolPullRequests, title: '代码体检中心', detail: '专治“应该能跑”' };
+    if (/修复问题/.test(text)) return { kind: 'repair', asset: config.assets.toolPlugins, title: 'Bug 急救站', detail: '红灯一亮，立刻救场' };
+    return { kind: 'task', asset: config.assets.toolNew, title: 'QQ 任务卡', detail: '点我开始安排' };
+  };
+
+  const findHomePrompt = (main) => Array.from(main.querySelectorAll('h1, h2, h3, p, span, div'))
+    .filter((node) => (
+      !node.closest('[id^="qq2007-"]')
+      && normalize(node.textContent) === '我们该构建什么？'
+    ))
+    // Prefer the innermost semantic/text node. Parent wrappers can have the
+    // same text, but hiding one of those may also hide the task cards.
+    .sort((left, right) => left.querySelectorAll('*').length - right.querySelectorAll('*').length)[0] || null;
+
+  const findHomeAnchor = (main, prompt, suggestions) => {
+    if (suggestions) {
+      let anchor = suggestions.parentElement?.parentElement || suggestions.parentElement;
+      if (prompt && anchor && !anchor.contains(prompt)) {
+        anchor = suggestions.parentElement;
+        while (anchor && anchor !== main && !anchor.contains(prompt)) anchor = anchor.parentElement;
+      }
+      if (anchor instanceof HTMLElement && anchor !== main) return anchor;
+    }
+    if (
+      state.homeAnchor?.isConnected
+      && main.contains(state.homeAnchor)
+      && (!prompt || state.homeAnchor.contains(prompt))
+    ) return state.homeAnchor;
+    // While the user types, Codex removes the suggestion buttons but keeps the
+    // native prompt. Its parent occupies the same home-stage coordinate space,
+    // so it is a stable fallback for preserving the QQ welcome panel.
+    return prompt?.parentElement instanceof HTMLElement ? prompt.parentElement : null;
+  };
+
+  const decorateHomeSurface = () => {
+    const main = document.querySelector('main.main-surface');
+    if (!main) return;
+    for (const node of main.querySelectorAll('[data-qq2007-home-suggestions], [data-qq2007-home-prompt], [data-qq2007-home-card]')) {
+      delete node.dataset.qq2007HomeSuggestions;
+      delete node.dataset.qq2007HomePrompt;
+      delete node.dataset.qq2007HomeCard;
+      delete node.dataset.qq2007HomeCardKind;
+    }
+    for (const generated of main.querySelectorAll('.qq2007-home-card-badge, .qq2007-home-card-copy')) generated.remove();
+    for (const nativeBody of main.querySelectorAll('[data-qq2007-home-native-card-body]')) delete nativeBody.dataset.qq2007HomeNativeCardBody;
+    const homeCardPattern = /探索并理解代码|构建新功能|审查代码|修复问题/;
+    const exactCandidates = [
+      ...main.querySelectorAll('section[class*="home-suggestions"], [class*="home-suggestions"]'),
+      ...main.querySelectorAll('section'),
+    ];
+    let suggestions = exactCandidates.find((node) => {
+      if (node.closest('[id^="qq2007-"]')) return false;
+      const text = normalize(node.textContent);
+      return /探索并理解代码/.test(text)
+        && /构建新功能/.test(text)
+        && /审查代码/.test(text)
+        && /修复问题/.test(text)
+        && node.querySelectorAll('button').length >= 4
+        && node.querySelectorAll('button').length <= 5;
+    });
+    // At narrower desktop widths Codex renders only three suggestion cards.
+    // Match the real card buttons rather than assuming the four-card layout.
+    if (!suggestions) {
+      const cards = Array.from(main.querySelectorAll('button')).filter((button) => {
+        if (button.closest('[id^="qq2007-"]') || !isVisible(button)) return false;
+        return homeCardPattern.test(normalize(button.textContent));
+      });
+      if (cards.length >= 3 && cards.length <= 4) {
+        let commonAncestor = cards[0].parentElement;
+        while (commonAncestor && commonAncestor !== main && !cards.every((card) => commonAncestor.contains(card))) {
+          commonAncestor = commonAncestor.parentElement;
+        }
+        if (commonAncestor instanceof HTMLElement && commonAncestor !== main) suggestions = commonAncestor;
+      }
+    }
+    const prompt = findHomePrompt(main);
+    if (prompt) prompt.dataset.qq2007HomePrompt = 'true';
+    const homeSurfaceActive = Boolean(prompt || suggestions);
+    if (!homeSurfaceActive) {
+      byId('qq2007-home-welcome')?.remove();
+      state.homeAnchor = null;
+      state.homeWelcomeTop = null;
+      for (const node of main.querySelectorAll('[data-qq2007-home-suggestions], [data-qq2007-home-prompt], [data-qq2007-home-card]')) {
+        delete node.dataset.qq2007HomeSuggestions;
+        delete node.dataset.qq2007HomePrompt;
+        delete node.dataset.qq2007HomeCard;
+      }
+      return;
+    }
+    if (suggestions) suggestions.dataset.qq2007HomeSuggestions = 'true';
+    const anchor = findHomeAnchor(main, prompt, suggestions);
+    if (anchor instanceof HTMLElement) {
+      state.homeAnchor = anchor;
+      let welcome = byId('qq2007-home-welcome');
+      if (welcome && welcome.parentElement !== anchor) {
+        welcome.remove();
+        welcome = null;
+      }
+      if (!welcome) {
+        welcome = makeHomeWelcome();
+        anchor.appendChild(welcome);
+      }
+      if (suggestions) {
+        const anchorRect = anchor.getBoundingClientRect();
+        const suggestionsRect = suggestions.getBoundingClientRect();
+        const welcomeHeight = welcome.getBoundingClientRect().height || 126;
+        const nextTop = suggestionsRect.top - anchorRect.top - welcomeHeight - 6;
+        if (Number.isFinite(nextTop)) state.homeWelcomeTop = Math.round(nextTop * 10) / 10;
+      }
+      if (Number.isFinite(state.homeWelcomeTop)) {
+        welcome.style.setProperty('--qq2007-home-welcome-top', `${state.homeWelcomeTop}px`);
+      }
+    }
+    for (const card of suggestions?.querySelectorAll(':scope button') || []) {
+      const presentation = homeTaskPresentation(normalize(card.textContent));
+      for (const nativeBody of Array.from(card.children)) nativeBody.dataset.qq2007HomeNativeCardBody = 'true';
+      card.dataset.qq2007HomeCard = 'true';
+      card.dataset.qq2007HomeCardKind = presentation.kind;
+      const badge = create('span', 'qq2007-home-card-badge');
+      badge.setAttribute('aria-hidden', 'true');
+      badge.appendChild(makeImage(presentation.asset || config.assets.toolNew, ''));
+      const copy = create('span', 'qq2007-home-card-copy');
+      copy.setAttribute('aria-hidden', 'true');
+      copy.appendChild(create('strong', '', presentation.title));
+      copy.appendChild(create('span', '', presentation.detail));
+      copy.appendChild(create('em', '', '双击开始安排'));
+      card.prepend(copy);
+      card.prepend(badge);
+    }
+  };
+
+  const decorateMessageContent = () => {
+    const main = document.querySelector('main.main-surface');
+    if (!main) return;
+    for (const block of main.querySelectorAll('pre')) {
+      if (block.closest('[id^="qq2007-"]')) continue;
+      const code = block.querySelector('code');
+      const className = `${code?.className || ''} ${block.className || ''}`;
+      const language = className.match(/(?:language-|lang-)([a-z0-9_+-]+)/i)?.[1]
+        || normalize(code?.getAttribute('data-language'))
+        || 'bash';
+      block.dataset.qq2007CodeLanguage = language;
+    }
+    const presentations = [
+      { kind: 'copy', label: '复制', pattern: /^(?:复制|复制消息|copy|copy message)$/i },
+      { kind: 'like', label: '赞', pattern: /^(?:喜欢|like)$/i },
+      { kind: 'dislike', label: '踩', pattern: /^(?:不喜欢|dislike)$/i },
+      { kind: 'share', label: '分享', pattern: /^(?:从这里继续新任务|continue(?: from here)?(?: in a)? new task|fork|share|分享)$/i },
+    ];
+    const presentationForButton = (button) => presentations.find(({ pattern }) => (
+      pattern.test(normalize(button.getAttribute('aria-label')))
+    ));
+    const findMessageActionStrip = (button) => {
+      let candidate = button.parentElement;
+      while (candidate && candidate !== main) {
+        const matchingButtons = Array.from(candidate.querySelectorAll('button[aria-label]')).filter(presentationForButton);
+        const kinds = matchingButtons.map((matchingButton) => presentationForButton(matchingButton).kind);
+        if (
+          matchingButtons.length === presentations.length
+          && new Set(kinds).size === presentations.length
+        ) return candidate;
+        if (candidate.hasAttribute('data-turn-key')) return null;
+        candidate = candidate.parentElement;
+      }
+      return null;
+    };
+
+    // Earlier builds could climb past the compact footer and mark an entire
+    // virtualized turn as the action strip. align-items:center then let a long
+    // command establish a huge intrinsic width and moved the conversation out
+    // of the center pane. Clear every previous marker and re-scope it below.
+    for (const staleStrip of main.querySelectorAll('[data-qq2007-message-actions="true"]')) {
+      delete staleStrip.dataset.qq2007MessageActions;
+    }
+    const messageButtons = Array.from(main.querySelectorAll('button[aria-label]'));
+    for (const button of messageButtons) {
+      const presentation = presentationForButton(button);
+      if (!presentation) continue;
+      const strip = findMessageActionStrip(button);
+      // Standalone and legacy partial controls still receive the retro icon,
+      // but only the four-action assistant footer receives strip layout.
+      button.dataset.qq2007MessageAction = presentation.kind;
+      const nativeIcon = Array.from(button.querySelectorAll('svg')).find((svg) => !svg.classList.contains('qq2007-message-action-icon'));
+      if (nativeIcon) nativeIcon.dataset.qq2007MessageNativeIcon = 'true';
+      if (!button.querySelector(':scope > .qq2007-message-action-icon')) {
+        button.prepend(makeClassicMessageActionIcon(presentation.kind));
+      }
+      let label = button.querySelector(':scope > .qq2007-message-action-label');
+      if (!label) {
+        label = create('span', 'qq2007-message-action-label');
+        label.setAttribute('aria-hidden', 'true');
+        button.appendChild(label);
+      }
+      setText(label, presentation.label);
+
+      if (!strip) continue;
+      strip.dataset.qq2007MessageActions = 'true';
+      const footer = strip.parentElement;
+      const time = Array.from(footer?.querySelectorAll('time, span, div') || []).find((node) => {
+        if (node.closest('[data-qq2007-message-actions="true"]')) return false;
+        return /^(?:(?:今天|昨天|today|yesterday)\s*)?\d{1,2}:\d{2}$/i.test(normalize(node.textContent));
+      });
+      if (time) time.dataset.qq2007MessageTime = 'true';
+    }
+  };
+
+  const syncMainTitleFrame = () => {
+    const main = document.querySelector('main.main-surface');
+    const header = main?.querySelector(':scope > header.app-header-tint');
+    const title = byId('qq2007-main-title');
+    if (!main || !header || !title) return;
+    const mainRect = main.getBoundingClientRect();
+    if (mainRect.width <= 0) return;
+    // The task title is the top frame of the central conversation window, so
+    // it must follow the outer main-surface border rather than the narrower
+    // message/composer content lane inside that window.
+    header.style.setProperty('--qq2007-main-title-frame-left', `${mainRect.left.toFixed(2)}px`);
+    header.style.setProperty('--qq2007-main-title-frame-right', `${Math.max(0, window.innerWidth - mainRect.right).toFixed(2)}px`);
+    header.style.setProperty('--qq2007-main-title-frame-top', `${mainRect.top.toFixed(2)}px`);
+  };
+
+  const clearNativeEnvDock = (host) => {
+    if (!host) return;
+    delete host.dataset.qq2007DockedEnv;
+    delete host.dataset.qq2007EnvHidden;
+    for (const prop of ['position', 'left', 'top', 'width', 'height', 'right', 'bottom', 'z-index', 'visibility', 'opacity']) {
+      host.style.removeProperty(prop);
+    }
+  };
+
+  const findNativeEnvHost = () => {
+    const main = document.querySelector('main.main-surface') || document.querySelector('main');
+    if (!main) return null;
+    return Array.from(main.querySelectorAll('div')).find((node) => {
+      if (node.closest('[id^="qq2007-"]')) return false;
+      const className = String(node.className || '');
+      const isRightDock = node.classList.contains('absolute')
+        && (node.classList.contains('right-0') || className.includes('right-0'))
+        && (node.classList.contains('z-40') || className.includes('z-40'));
+      if (!isRightDock) return false;
+      return /(?:输出|output|来源|source|环境信息|environment(?:\s+information)?)/i.test(normalize(node.textContent));
+    }) || null;
+  };
+
+  const syncNativeOutputOverlay = () => {
+    const host = findNativeEnvHost();
+    if (state.nativeEnvHost && state.nativeEnvHost !== host) clearNativeEnvDock(state.nativeEnvHost);
+    state.nativeEnvHost = host || null;
+    if (host) clearNativeEnvDock(host);
+  };
+
+  const liveSidebarCollapsed = () => {
+    const trigger = document.querySelector('[data-app-shell-sidebar-trigger="true"]');
+    return Boolean(trigger && trigger.getAttribute('aria-expanded') === 'false');
+  };
+  const syncSidebarCollapsed = (forced) => {
+    const aside = document.querySelector('aside.app-shell-left-panel');
+    const row = document.querySelector('[data-qq2007-row-host="true"]');
+    let collapsed;
+    if (typeof forced === 'boolean') {
+      collapsed = forced;
+      state.sidebarCollapseExpected = forced;
+      state.sidebarAnimatingUntil = Date.now() + 700;
+    } else if (Date.now() < state.sidebarAnimatingUntil && typeof state.sidebarCollapseExpected === 'boolean') {
+      collapsed = state.sidebarCollapseExpected;
+      if (liveSidebarCollapsed() === state.sidebarCollapseExpected) {
+        state.sidebarAnimatingUntil = Math.min(state.sidebarAnimatingUntil, Date.now() + 160);
+      }
+    } else {
+      collapsed = liveSidebarCollapsed();
+      state.sidebarCollapseExpected = collapsed;
+    }
+    if (aside) aside.dataset.qq2007Collapsed = collapsed ? 'true' : 'false';
+    if (row) row.dataset.qq2007SidebarCollapsed = collapsed ? 'true' : 'false';
+  };
+
+  const findComposer = () => {
+    stampCompatSelectors();
+    return document.querySelector('.composer-surface-chrome') || document.querySelector('[class*="ComposerLayoutRoot"]');
+  };
+  const detectComposerControls = () => {
+    const composer = findComposer();
+    if (!composer) return;
+    const buttons = Array.from(composer.querySelectorAll('button')).filter((button) => !button.closest('[id^="qq2007-"]'));
+    const previousSendButton = state.nativeSendButton;
+    const explicitSendButton = buttons.find((button) => {
+      const label = `${normalize(button.getAttribute('aria-label'))} ${normalize(button.title)} ${normalize(button.textContent)}`;
+      return /发送|send|submit/i.test(label);
+    });
+    const primaryComposerButton = buttons.find((button) => /size-token-button-composer/.test(String(button.className)));
+    state.nativeSendButton = explicitSendButton
+      || primaryComposerButton
+      || (state.nativeSendButton?.isConnected ? state.nativeSendButton : null);
+    if (previousSendButton && previousSendButton !== state.nativeSendButton) {
+      delete previousSendButton.dataset.qq2007NativeSendTrigger;
+    }
+    if (state.nativeSendButton) state.nativeSendButton.dataset.qq2007NativeSendTrigger = 'true';
+    const previousAttachButton = state.nativeAttachButton;
+    state.nativeAttachButton = buttons.find((button) => {
+      const label = `${normalize(button.getAttribute('aria-label'))} ${normalize(button.title)} ${normalize(button.textContent)}`;
+      return /附件|附加|attach|add context|添加/i.test(label);
+    }) || (state.nativeAttachButton?.isConnected ? state.nativeAttachButton : null);
+    if (previousAttachButton && previousAttachButton !== state.nativeAttachButton) delete previousAttachButton.dataset.qq2007NativeAttachTrigger;
+    if (state.nativeAttachButton) state.nativeAttachButton.dataset.qq2007NativeAttachTrigger = 'true';
+
+    const previousAccessButton = state.nativeAccessButton;
+    state.nativeAccessButton = buttons.find((button) => {
+      const label = `${normalize(button.getAttribute('aria-label'))} ${normalize(button.title)} ${normalize(button.textContent)}`;
+      return /完全访问|访问权限|访问模式|full access|access mode|permissions?/i.test(label);
+    }) || (state.nativeAccessButton?.isConnected ? state.nativeAccessButton : null);
+    if (previousAccessButton && previousAccessButton !== state.nativeAccessButton) delete previousAccessButton.dataset.qq2007NativeAccessTrigger;
+    if (state.nativeAccessButton) state.nativeAccessButton.dataset.qq2007NativeAccessTrigger = 'true';
+
+    const previousContextIndicator = state.nativeContextIndicator;
+    state.nativeContextIndicator = Array.from(composer.querySelectorAll('[aria-label]')).find((element) => (
+      /上下文用量|context (?:window )?usage/i.test(normalize(element.getAttribute('aria-label')))
+    )) || (state.nativeContextIndicator?.isConnected ? state.nativeContextIndicator : null);
+    if (previousContextIndicator && previousContextIndicator !== state.nativeContextIndicator) {
+      delete previousContextIndicator.dataset.qq2007NativeContextIndicator;
+      delete previousContextIndicator.dataset.qq2007ContextValue;
+    }
+    if (state.nativeContextIndicator) {
+      const contextLabel = normalize(state.nativeContextIndicator.getAttribute('aria-label'));
+      const contextValue = contextLabel.match(/(\d+(?:\.\d+)?)\s*%/)?.[1];
+      state.nativeContextIndicator.dataset.qq2007NativeContextIndicator = 'true';
+      state.nativeContextIndicator.dataset.qq2007ContextValue = contextValue ? `${contextValue}%` : '';
+    }
+    const previousModelButton = state.nativeModelButton;
+    const controlLabel = (button) => `${normalize(button.getAttribute('aria-label'))} ${normalize(button.title)} ${normalize(button.textContent)}`;
+    const isReservedComposerControl = (button) => (
+      button === state.nativeSendButton
+      || button === state.nativeAttachButton
+      || button === state.nativeAccessButton
+      || /完全访问|访问权限|访问模式|附件|附加|发送|send|attach|full access/i.test(controlLabel(button))
+    );
+    const modelButton = buttons.find((button) => (
+      !isReservedComposerControl(button)
+      && button.getAttribute('aria-haspopup') === 'menu'
+      && Boolean(button.querySelector('[class*="ModelPickerTrigger"], [class*="dropdownLabelValueContent"]'))
+    )) || buttons.find((button) => {
+      const label = controlLabel(button);
+      return !isReservedComposerControl(button)
+        && /模型|model|GPT|Codex|Sol|High|Medium|Low|高|中|低|grok|claude|gemini|dmi|ultra|plus|flash|opus/i.test(label)
+        && !/发送|send/i.test(label);
+    }) || buttons.find((button) => (
+      !isReservedComposerControl(button)
+      && button.getAttribute('aria-haspopup') === 'menu'
+    )) || (state.nativeModelButton?.isConnected ? state.nativeModelButton : null);
+    if (previousModelButton && previousModelButton !== modelButton) delete previousModelButton.dataset.qq2007NativeModelTrigger;
+    state.nativeModelButton = modelButton;
+    if (state.nativeModelButton) state.nativeModelButton.dataset.qq2007NativeModelTrigger = 'true';
+  };
+
+  const makeComposerChrome = () => {
+    const chrome = create('div');
+    chrome.id = 'qq2007-composer-chrome';
+    const tools = create('div', 'qq2007-composer-tools');
+    const toolDefinitions = [
+      ['表情', 'composerEmoji', focusComposer],
+      ['图片', 'composerImage', () => invoke(() => state.nativeAttachButton, focusComposer)],
+      ['附加', 'composerAttach', () => invoke(() => state.nativeAttachButton, focusComposer)],
+    ];
+    for (const [label, asset, action] of toolDefinitions) {
+      const button = create('button', 'qq2007-composer-tool');
+      button.type = 'button';
+      button.title = label;
+      button.appendChild(makeImage(config.assets[asset], ''));
+      button.appendChild(create('span', '', label));
+      button.addEventListener('click', action);
+      tools.appendChild(button);
+    }
+    const lower = create('div', 'qq2007-composer-lower');
+    const model = create('button', 'qq2007-model-button');
+    model.type = 'button';
+    model.title = '选择 Codex 模型';
+    model.appendChild(makeImage(config.assets.penguin2007, '', 'qq2007-model-icon'));
+    const modelLabel = create('span', 'qq2007-model-label', '当前模型');
+    modelLabel.dataset.qqModelLabel = 'true';
+    model.appendChild(modelLabel);
+    model.appendChild(create('span', 'qq2007-model-caret'));
+    model.addEventListener('click', () => invoke(() => state.nativeModelButton));
+    const send = create('button', 'qq2007-send-button');
+    send.type = 'button';
+    send.tabIndex = -1;
+    send.setAttribute('aria-hidden', 'true');
+    send.setAttribute('aria-label', '发送(S)');
+    send.title = '发送消息（Git 提交按钮存在时映射为发送消息）';
+    send.addEventListener('click', () => {
+      if (!invoke(() => state.nativeSendButton)) invoke(nativeActions.commit, focusComposer);
+    });
+    const sendMenu = create('button', 'qq2007-send-menu');
+    sendMenu.type = 'button';
+    sendMenu.setAttribute('aria-label', '发送选项');
+    sendMenu.title = '发送选项';
+    sendMenu.addEventListener('click', () => invoke(() => state.nativeModelButton));
+    lower.append(model, send, sendMenu);
+    chrome.append(tools, lower);
+    return chrome;
+  };
+
+  const makeRightPanel = () => {
+    const panel = create('aside');
+    panel.id = 'qq2007-right-panel';
+    panel.setAttribute('aria-label', 'Codex 好友');
+    const header = create('div', 'qq2007-right-header');
+    header.appendChild(create('strong', '', 'Codex 好友'));
+    header.appendChild(makeImage(config.assets.rightControls, '', 'qq2007-right-controls'));
+
+    const botStage = create('div', 'qq2007-bot-stage');
+    botStage.appendChild(makeMotionStageImage(
+      config.assets.botStageAnimated,
+      config.assets.botStage,
+      'Codex 小蓝',
+    ));
+    const identity = create('div', 'qq2007-bot-identity');
+    const onlineIcon = makeImage(config.assets.onlineIcon, '', 'qq2007-status-icon');
+    onlineIcon.dataset.qqAgentDot = 'right';
+    identity.appendChild(onlineIcon);
+    identity.appendChild(create('strong', '', 'Codex 小蓝'));
+    const level = create('span', 'qq2007-level-badge', '待同步');
+    level.dataset.qqLevel = 'right-badge';
+    identity.appendChild(level);
+    const levelIcons = create('span', 'qq2007-level-icons');
+    levelIcons.dataset.qqLevelIcons = 'right-badge';
+    levelIcons.setAttribute('aria-label', 'QQ 等级图标');
+    identity.appendChild(levelIcons);
+    const signature = create('div', 'qq2007-signature');
+    signature.appendChild(create('strong', '', '代码有问题？找我！'));
+    const cardLine = create('span', 'qq2007-bot-card-line', '智能伙伴 · 写代码 / 改 Bug / 查文档');
+    cardLine.dataset.qqBotCardLine = 'true';
+    signature.appendChild(cardLine);
+    const meta = create('span', 'qq2007-signature-meta', 'Agent 在线 · Q币余额 -- · 累计待同步');
+    const statusText = create('span', 'qq2007-sr-only', '在线');
+    statusText.dataset.qqAgentStatus = 'right';
+    const balance = create('span', 'qq2007-sr-only', '--');
+    balance.dataset.qqCoinBalance = 'right';
+    const total = create('span', 'qq2007-sr-only', '待同步');
+    total.dataset.qqTokenTotal = 'right';
+    signature.append(meta, statusText, balance, total);
+
+    const toolStrip = create('div', 'qq2007-right-tool-strip');
+    const stripActions = [
+      { title: '发送消息', asset: 'toolChat', action: focusComposer },
+      { title: '插件', asset: 'toolPlugins', action: nativeActions.plugins },
+      { title: '搜索', asset: 'searchIcon', action: nativeActions.search },
+      { title: '站点', asset: 'toolSites', action: nativeActions.sites },
+      { title: '项目', asset: 'folderIcon', action: nativeActions.projects },
+    ];
+    for (const item of stripActions) {
+      const button = create('button', 'qq2007-right-tool-button');
+      button.type = 'button';
+      button.title = item.title;
+      button.setAttribute('aria-label', item.title);
+      button.appendChild(makeImage(config.assets[item.asset], ''));
+      button.addEventListener('click', () => invoke(item.action, focusComposer));
+      toolStrip.appendChild(button);
+    }
+
+    const botCard = create('div', 'qq2007-bot-card');
+    botCard.append(botStage, identity, signature, toolStrip);
+
+    const friendsHeader = create('div', 'qq2007-friends-header');
+    friendsHeader.appendChild(create('strong', '', '我的好友 (1/1)'));
+    friendsHeader.querySelector('strong').dataset.qqFriendCount = 'true';
+    const friendStage = create('div', 'qq2007-friend-stage');
+    friendStage.appendChild(makeMotionStageImage(
+      config.assets.friendStageAnimated,
+      config.assets.friendStage,
+      'Gary QQ秀',
+    ));
+    const friendSearch = create('button', 'qq2007-friend-search');
+    friendSearch.type = 'button';
+    friendSearch.appendChild(create('span', '', '查找好友...'));
+    friendSearch.appendChild(makeImage(config.assets.searchIcon, ''));
+    friendSearch.addEventListener('click', () => invoke(nativeActions.search));
+    panel.append(header, botCard, friendsHeader, friendStage, friendSearch);
+    return panel;
+  };
+
+
+  const makeStatusBar = () => {
+    const bar = create('footer');
+    bar.id = 'qq2007-statusbar';
+    const left = create('div', 'qq2007-status-left');
+    left.appendChild(makeImage(config.assets.statusIcons, 'Codex 快捷图标'));
+    const semantics = create('span', 'qq2007-sr-only', '任务等于好友消息；任务完成显示好友上线提醒；Git 提交等于发送消息');
+    left.appendChild(semantics);
+    const right = create('div', 'qq2007-status-right');
+    right.appendChild(makeImage(config.assets.shield, '安全'));
+    right.appendChild(create('span', '', '安全'));
+    right.appendChild(makeImage(config.assets.signal, '本机连接'));
+    const agent = create('span', 'qq2007-agent-state', '在线');
+    agent.dataset.qqAgentStatus = 'statusbar';
+    right.appendChild(agent);
+    right.appendChild(makeImage(config.assets.flower, ''));
+    const level = create('span', 'qq2007-level-status', 'LV.待同步');
+    level.dataset.qqLevel = 'statusbar';
+    right.appendChild(level);
+    const levelIcons = create('span', 'qq2007-level-icons qq2007-level-icons-status');
+    levelIcons.dataset.qqLevelIcons = 'statusbar';
+    levelIcons.setAttribute('aria-label', 'QQ 等级图标');
+    right.appendChild(levelIcons);
+    const clock = create('time', 'qq2007-clock', '--:--');
+    clock.dataset.qqClock = 'true';
+    right.appendChild(clock);
+    bar.append(left, right);
+    return bar;
+  };
+
+  const makeToast = () => {
+    const toast = create('aside');
+    toast.id = 'qq2007-toast';
+    toast.setAttribute('role', 'status');
+    toast.setAttribute('aria-live', 'polite');
+    toast.appendChild(makeImage(config.assets.botStage, ''));
+    const copy = create('div', 'qq2007-toast-copy');
+    const heading = create('strong', '', '好友上线');
+    heading.dataset.qqToastHeading = 'true';
+    const detail = create('span', '', 'Codex 小蓝已经在线');
+    detail.dataset.qqToastDetail = 'true';
+    copy.append(heading, detail);
+    toast.appendChild(copy);
+    return toast;
+  };
+  const showToast = (heading, detail) => {
+    const toast = byId('qq2007-toast');
+    if (!toast) return;
+    const now = Date.now();
+    const signature = String(heading) + '\0' + String(detail);
+    if (state.lastToastAt && now - state.lastToastAt < 20000 && state.lastToastSignature === signature) return;
+    state.lastToastAt = now;
+    state.lastToastSignature = signature;
+    setText(toast.querySelector('[data-qq-toast-heading]'), heading);
+    setText(toast.querySelector('[data-qq-toast-detail]'), detail);
+    toast.dataset.visible = 'true';
+    if (state.toastTimer) window.clearTimeout(state.toastTimer);
+    state.toastTimer = window.setTimeout(() => {
+      toast.dataset.visible = 'false';
+      state.toastTimer = null;
+    }, 2800);
+  };
+  state.showToast = showToast;
+
+  const textMappings = new Map([
+    ['提交', '发送消息'],
+    ['Commit', '发送消息'],
+  ]);
+  const renameTextNodes = () => {
+    const roots = [document.querySelector('aside.app-shell-left-panel'), document.querySelector('main.main-surface')].filter(Boolean);
+    for (const root of roots) {
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      let node;
+      while ((node = walker.nextNode())) {
+        if (node.parentElement?.closest('[id^="qq2007-"]')) continue;
+        const raw = node.nodeValue || '';
+        const value = normalize(raw);
+        const replacement = textMappings.get(value);
+        if (!replacement) continue;
+        if (!state.textRenames.has(node)) state.textRenames.set(node, raw);
+        node.nodeValue = raw.replace(value, replacement);
+        if (node.parentElement) node.parentElement.dataset.qq2007Renamed = 'true';
+      }
+    }
+  };
+  const attributeMappings = [
+    [/^提交$/i, '发送消息'],
+    [/^commit$/i, '发送消息'],
+  ];
+  const renameAttributes = () => {
+    const elements = document.querySelectorAll(
+      'aside.app-shell-left-panel [aria-label], aside.app-shell-left-panel [title], main.main-surface [aria-label], main.main-surface [title]',
+    );
+    for (const element of elements) {
+      if (element.closest('[id^="qq2007-"]')) continue;
+      for (const attribute of ['aria-label', 'title']) {
+        const current = normalize(element.getAttribute(attribute));
+        const match = current && attributeMappings.find(([pattern]) => pattern.test(current));
+        if (!match) continue;
+        if (!state.attributeRenames.has(element)) state.attributeRenames.set(element, new Map());
+        const originals = state.attributeRenames.get(element);
+        if (!originals.has(attribute)) originals.set(attribute, element.getAttribute(attribute));
+        element.setAttribute(attribute, match[1]);
+        element.dataset.qq2007Renamed = 'true';
+      }
+    }
+  };
+
+  const detectAgentState = () => {
+    if (!navigator.onLine) return 'away';
+    const stopButton = Array.from(document.querySelectorAll('button')).find((button) => {
+      if (!isVisible(button) || button.closest('[id^="qq2007-"]')) return false;
+      const label = `${normalize(button.getAttribute('aria-label'))} ${normalize(button.textContent)}`;
+      return /停止|stop/i.test(label);
+    });
+    if (stopButton) return 'busy';
+    if (hasNativeApprovalSurface()) return 'away';
+    const approval = Array.from(document.querySelectorAll('[role="dialog"], [role="alertdialog"]'))
+      .find((dialog) => isVisible(dialog) && /批准|审批|确认|approval|approve/i.test(normalize(dialog.textContent)));
+    if (approval) return 'away';
+    return document.hidden ? 'away' : 'online';
+  };
+  const stateLabel = (value) => ({ online: '在线', busy: '忙碌', away: '离开' }[value] || '离开');
+  const updateAgentState = () => {
+    const next = detectAgentState();
+    const label = stateLabel(next);
+    for (const node of document.querySelectorAll('[data-qq-agent-status]')) setText(node, label);
+    for (const icon of document.querySelectorAll('[data-qq-agent-dot]')) icon.dataset.state = next;
+    const meta = document.querySelector('.qq2007-signature-meta');
+    const coin = document.querySelector('[data-qq-coin-balance="right"]')?.textContent || '--';
+    const total = document.querySelector('[data-qq-token-total="right"]')?.textContent || '待同步';
+    setText(meta, `Agent ${label} · Q币余额 ${coin} · 累计${total}`);
+    if (state.lastAgentState === 'busy' && next === 'online') {
+      const now = Date.now();
+      if (!state.lastOnlineToastAt || now - state.lastOnlineToastAt > 30000) {
+        state.lastOnlineToastAt = now;
+        showToast('好友上线', '任务已完成，Codex 小蓝恢复在线');
+      }
+    }
+    state.lastAgentState = next;
+  };
+
+  const readWeeklyQuota = () => {
+    const usagePanel = Array.from(document.querySelectorAll(
+      '[role="menu"], [role="dialog"], [data-radix-popper-content-wrapper]',
+    )).find((element) => {
+      if (!isVisible(element) || element.closest('[id^="qq2007-"]')) return false;
+      const text = normalize(element.textContent);
+      return /剩余用量|usage/i.test(text) && /1\s*周/.test(text) && /[0-9]{1,3}\s*%/.test(text);
+    });
+    const text = usagePanel ? normalize(usagePanel.textContent) : '';
+    const weeklyMatch = text.match(/1\s*周\s*([0-9]{1,3})\s*%/i)
+      || text.match(/([0-9]{1,3})\s*%[^%]{0,32}1\s*周/i);
+    if (!weeklyMatch) return state.weeklyQuota;
+    state.weeklyQuota = {
+      period: '1周',
+      percentage: Math.max(0, Math.min(100, Number(weeklyMatch[1]))),
+    };
+    persistWeeklyQuota(state.weeklyQuota);
+    return state.weeklyQuota;
+  };
+  const updateBalance = () => {
+    const weeklyQuota = readWeeklyQuota();
+    const value = weeklyQuota ? `${weeklyQuota.period} ${weeklyQuota.percentage}%` : '--';
+    for (const node of document.querySelectorAll('[data-qq-coin-balance]')) {
+      setText(node, node.dataset.qqCoinBalance === 'left' ? `Q币余额 ${value}` : value);
+      node.title = 'Q币余额直接映射为 Codex“剩余用量”中的 1 周剩余额度；读不到时显示 --';
+    }
+  };
+
+  const calculateQqLevel = (tokenStats) => {
+    if (!tokenStats?.available || !Number.isFinite(tokenStats.totalTokens) || tokenStats.totalTokens < 0) return null;
+    const totalTokens = Math.floor(tokenStats.totalTokens);
+    const level = Math.min(64, 1 + Math.floor(4 * Math.log2(1 + (totalTokens / 1000000))));
+    const band = level - 1;
+    const currentThreshold = level <= 1 ? 0 : Math.ceil(1000000 * ((2 ** (band / 4)) - 1));
+    const nextThreshold = level >= 64 ? null : Math.ceil(1000000 * ((2 ** ((band + 1) / 4)) - 1));
+    const progress = nextThreshold === null ? 100 : Math.max(0, Math.min(100, Math.floor(
+      ((totalTokens - currentThreshold) / (nextThreshold - currentThreshold)) * 100,
+    )));
+    return { totalTokens, level, currentThreshold, nextThreshold, progress };
+  };
+  const compactTokens = (value) => {
+    if (!Number.isFinite(value)) return '待同步';
+    if (value >= 100000000) return `${(value / 100000000).toFixed(2)}亿`;
+    if (value >= 10000) return `${(value / 10000).toFixed(1)}万`;
+    return new Intl.NumberFormat('zh-CN').format(value);
+  };
+  const getQqLevelIconParts = (level) => {
+    const value = Math.max(0, Math.min(64, Math.floor(level || 0)));
+    if (value >= 64) return [{ asset: 'levelCrown', label: 'QQ 等级皇冠' }];
+    const parts = [];
+    const suns = Math.floor(value / 16);
+    const moons = Math.floor((value % 16) / 4);
+    const stars = value % 4;
+    for (let index = 0; index < suns; index += 1) parts.push({ asset: 'levelSun', label: 'QQ 等级太阳' });
+    for (let index = 0; index < moons; index += 1) parts.push({ asset: 'levelMoon', label: 'QQ 等级月亮' });
+    for (let index = 0; index < stars; index += 1) parts.push({ asset: 'levelStar', label: 'QQ 等级星星' });
+    return parts;
+  };
+  const updateLevelIcons = (level, title) => {
+    const parts = getQqLevelIconParts(level);
+    for (const node of document.querySelectorAll('[data-qq-level-icons]')) {
+      node.replaceChildren(...parts.map((part) => {
+        const icon = makeImage(config.assets[part.asset], part.label, 'qq2007-level-icon');
+        icon.dataset.qqLevelAsset = part.asset.replace(/^level/, '').toLowerCase();
+        return icon;
+      }));
+      node.title = title;
+    }
+  };
+  const updateTokenLevel = () => {
+    const result = calculateQqLevel(state.tokenStats);
+    state.qqLevel = result;
+    const exact = result ? new Intl.NumberFormat('zh-CN').format(result.totalTokens) : null;
+    const title = result
+      ? `累计 Token：${exact}；等级公式：min(64, 1 + floor(4 × log2(1 + totalTokens / 1,000,000)))；下一级进度：${result.progress}%`
+      : '未读取到可验证的本机累计 Token 数据';
+    for (const node of document.querySelectorAll('[data-qq-level]')) {
+      const slot = node.dataset.qqLevel;
+      if (!result) setText(node, slot === 'right-badge' ? 'LV--' : 'LV.待同步');
+      else if (slot === 'statusbar') setText(node, `LV.${result.level}`);
+      else setText(node, `LV${String(result.level).padStart(2, '0')}`);
+      node.title = title;
+    }
+    updateLevelIcons(result?.level, title);
+    for (const node of document.querySelectorAll('[data-qq-token-total]')) {
+      setText(node, result ? compactTokens(result.totalTokens) : '待同步');
+      node.title = title;
+    }
+    return result;
+  };
+  state.updateTokenStats = (tokenStats) => {
+    state.tokenStats = tokenStats;
+    const result = updateTokenLevel();
+    return { pass: Boolean(result), totalTokens: result?.totalTokens ?? null, level: result?.level ?? null };
+  };
+
+  const findReactFiber = (node) => {
+    const key = Object.keys(node).find((name) => name.startsWith('__reactFiber'));
+    return key ? node[key] : null;
+  };
+  const findThreadMenuSource = (row) => {
+    let fiber = findReactFiber(row);
+    while (fiber) {
+      const props = fiber.memoizedProps || {};
+      if (typeof props.getItems === 'function') return { fiber, getItems: props.getItems };
+      fiber = fiber.return;
+    }
+    return null;
+  };
+  const findFormatMessage = (fiber) => {
+    let current = fiber;
+    while (current) {
+      let hook = current.memoizedState;
+      let steps = 0;
+      while (hook && steps < 40) {
+        const state = hook.memoizedState;
+        if (state && typeof state.formatMessage === 'function') return state.formatMessage.bind(state);
+        if (state && state.value && typeof state.value.formatMessage === 'function') {
+          return state.value.formatMessage.bind(state.value);
+        }
+        hook = hook.next;
+        steps += 1;
+      }
+      current = current.return;
+    }
+    return null;
+  };
+  const labelForMenuItem = (item, formatMessage) => {
+    if (!item || item.type === 'separator') return '';
+    if (formatMessage && item.message) {
+      try { return formatMessage(item.message, item.messageValues); } catch (_error) { /* fall through */ }
+    }
+    const template = (item.message && item.message.defaultMessage) || item.id || '';
+    const values = item.messageValues || {};
+    return String(template).replace(/\{(\w+)\}/g, (_, key) => (
+      values[key] == null ? '' : String(values[key])
+    ));
+  };
+  const toNativeMenuItems = (items, formatMessage) => (Array.isArray(items) ? items : []).map((item) => {
+    if (item.type === 'separator') return { type: 'separator', id: item.id };
+    const converted = {
+      id: item.id,
+      label: labelForMenuItem(item, formatMessage),
+      enabled: item.enabled !== false,
+    };
+    if (typeof item.icon === 'string') converted.icon = item.icon;
+    if (item.accelerator) converted.accelerator = item.accelerator;
+    if (item.submenu) converted.submenu = toNativeMenuItems(item.submenu, formatMessage);
+    return converted;
+  });
+  const findMenuItemById = (items, id) => {
+    for (const item of items || []) {
+      if (item && item.id === id) return item;
+      if (item && item.submenu) {
+        const nested = findMenuItemById(item.submenu, id);
+        if (nested) return nested;
+      }
+    }
+    return null;
+  };
+  const openNativeThreadMenu = async (row) => {
+    const source = findThreadMenuSource(row);
+    const showMenu = window.electronBridge && window.electronBridge.showContextMenu;
+    if (!source || typeof showMenu !== 'function') {
+      const rect = row.getBoundingClientRect();
+      row.dispatchEvent(new MouseEvent('contextmenu', {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        view: window,
+        clientX: Math.round(rect.left + 24),
+        clientY: Math.round(rect.bottom),
+        button: 2,
+        buttons: 2,
+      }));
+      return;
+    }
+    const items = await Promise.resolve(source.getItems());
+    if (!Array.isArray(items) || items.length === 0) return;
+    const formatMessage = findFormatMessage(source.fiber);
+    const selected = await showMenu(toNativeMenuItems(items, formatMessage));
+    const selectedId = selected && selected.id;
+    if (!selectedId) return;
+    const chosen = findMenuItemById(items, selectedId);
+    if (chosen && typeof chosen.onSelect === 'function') chosen.onSelect();
+  };
+  const ensureThreadMoreButton = (row) => {
+    const nativeMore = Array.from(row.querySelectorAll('button[aria-haspopup="menu"]')).find((button) => (
+      !button.dataset.qq2007ThreadMore
+      && /\u804a\u5929\u64cd\u4f5c|thread actions|more options/i.test(`${button.getAttribute('aria-label') || ''} ${button.getAttribute('title') || ''}`)
+    ));
+    if (nativeMore) {
+      for (const node of row.querySelectorAll('[data-qq2007-thread-more]')) node.remove();
+      return;
+    }
+    const action = Array.from(row.querySelectorAll('button')).find((button) => (
+      !button.dataset.qq2007ThreadMore
+      && /\u7f6e\u9876|\u5f52\u6863|pin chat|archive/i.test(button.getAttribute('aria-label') || '')
+    ));
+    const rail = action && action.closest('div.absolute');
+    if (rail) rail.dataset.qq2007ThreadRail = 'true';
+    let more = row.querySelector('[data-qq2007-thread-more]');
+    if (more && more.dataset.qq2007ThreadMoreBound !== 'hover-rail') {
+      more.remove();
+      more = null;
+    }
+    if (!more) {
+      more = create('button');
+      more.type = 'button';
+      more.dataset.qq2007ThreadMore = 'true';
+      more.dataset.qq2007ThreadMoreBound = 'hover-rail';
+      more.setAttribute('aria-label', '\u804a\u5929\u64cd\u4f5c');
+      more.setAttribute('title', '\u804a\u5929\u64cd\u4f5c');
+      const glyph = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      glyph.setAttribute('width', '16');
+      glyph.setAttribute('height', '16');
+      glyph.setAttribute('viewBox', '0 0 16 16');
+      glyph.setAttribute('aria-hidden', 'true');
+      glyph.setAttribute('focusable', 'false');
+      glyph.innerHTML = '<circle cx="3.25" cy="8" r="1.35" fill="currentColor"/><circle cx="8" cy="8" r="1.35" fill="currentColor"/><circle cx="12.75" cy="8" r="1.35" fill="currentColor"/>';
+      more.appendChild(glyph);
+      more.addEventListener('pointerdown', (event) => {
+        event.stopPropagation();
+        if (event.button !== 0) return;
+        event.preventDefault();
+        more.dataset.qq2007Opened = '1';
+        openNativeThreadMenu(row);
+      });
+      more.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (more.dataset.qq2007Opened === '1') {
+          delete more.dataset.qq2007Opened;
+          return;
+        }
+        openNativeThreadMenu(row);
+      });
+    }
+    if (rail) {
+      if (more.parentElement !== rail) rail.appendChild(more);
+    } else if (more.parentElement !== row) {
+      row.appendChild(more);
+    }
+  };
+
+  const decorateNativeSidebar = () => {
+    if (isSettingsSurface()) return;
+    const aside = document.querySelector('aside.app-shell-left-panel');
+    if (!aside) return;
+    if (!state.nativeSearchButton?.isConnected) {
+      state.nativeSearchButton = findButton({ aria: [/^搜索$/i, /^search$/i], within: aside });
+    }
+    if (!state.nativeProfileButton?.isConnected) {
+      state.nativeProfileButton = findButton({ aria: [/个人资料/i, /profile/i, /账户/i, /account/i], within: aside });
+    }
+    if (state.nativeProfileButton) {
+      state.nativeProfileButton.dataset.qq2007NativeProfileTrigger = 'true';
+      const footer = state.nativeProfileButton.closest('div.absolute.inset-x-0.bottom-0')
+        || state.nativeProfileButton.parentElement;
+      if (footer) {
+        footer.dataset.qq2007NativeProfileFooter = 'true';
+        const updateSlot = footer.firstElementChild;
+        const updateIsUserRow = updateSlot && (
+          updateSlot === state.nativeProfileButton || updateSlot.contains(state.nativeProfileButton)
+        );
+        if (updateSlot && !updateIsUserRow) {
+          updateSlot.dataset.qq2007NativeUpdateSlot = 'true';
+          const active = updateSlot.childElementCount > 0 || Boolean(normalize(updateSlot.textContent));
+          updateSlot.dataset.qq2007NativeUpdateActive = active ? 'true' : 'false';
+          aside.dataset.qq2007UpdateActive = active ? 'true' : 'false';
+          aside.style.setProperty('--qq2007-update-height', active ? '36px' : '0px');
+        } else {
+          delete aside.dataset.qq2007UpdateActive;
+          aside.style.removeProperty('--qq2007-update-height');
+        }
+        const updateAction = Array.from(footer.querySelectorAll('button')).find((button) => {
+          if (button === state.nativeProfileButton) return false;
+          const label = `${button.getAttribute('aria-label') || ''} ${button.getAttribute('title') || ''} ${normalize(button.textContent)}`;
+          const cls = String(button.className || '');
+          return /正在安装|安装更新|下载更新|更新可用|重启以更新|restart to update|installing|downloading|download update|update available|restart to/i.test(label)
+            || (cls.includes('rounded-full') && cls.includes('bg-chart-blue'));
+        });
+        for (const node of footer.querySelectorAll('[data-qq2007-native-update-action="true"]')) {
+          if (node !== updateAction) delete node.dataset.qq2007NativeUpdateAction;
+        }
+        if (updateAction) {
+          updateAction.dataset.qq2007NativeUpdateAction = 'true';
+          aside.dataset.qq2007UpdateAction = 'true';
+        } else {
+          delete aside.dataset.qq2007UpdateAction;
+        }
+        if (footer.parentElement) {
+          footer.parentElement.dataset.qq2007NativeProfileHost = 'true';
+          if (footer.parentElement.parentElement) {
+            footer.parentElement.parentElement.dataset.qq2007NativeProfilePaintHost = 'true';
+          }
+        }
+      }
+    }
+    const nativeCodexButton = Array.from(aside.querySelectorAll('button')).find((button) => (
+      !button.closest('[id^="qq2007-"]') && (
+        /^Codex$/i.test(normalize(button.textContent))
+        || /切换模式|当前模式：Codex|switch mode/i.test(button.getAttribute('aria-label') || '')
+      )
+    ));
+    if (nativeCodexButton) {
+      let sharedRow = nativeCodexButton.parentElement;
+      while (sharedRow && sharedRow !== aside) {
+        const compact = sharedRow.classList.contains('flex') && sharedRow.classList.contains('items-center');
+        const height = sharedRow.getBoundingClientRect().height;
+        if (compact && (sharedRow.classList.contains('ms-2') || (height > 0 && height < 40))) {
+          sharedRow.dataset.qq2007NativeAsideHeader = 'true';
+          break;
+        }
+        sharedRow = sharedRow.parentElement;
+      }
+      if (!aside.querySelector('[data-qq2007-native-aside-header="true"]')) {
+        (nativeCodexButton.parentElement || nativeCodexButton).dataset.qq2007NativeAsideHeader = 'true';
+      }
+    }
+    if (state.nativeSearchButton) state.nativeSearchButton.dataset.qq2007NativeSearch = 'true';
+    const nativeHelpButton = Array.from(aside.querySelectorAll('button')).find((button) => (
+      !button.closest('[id^="qq2007-"]') && /打开帮助菜单|help menu/i.test(button.getAttribute('aria-label') || '')
+    ));
+    if (nativeHelpButton) nativeHelpButton.dataset.qq2007NativeHelp = 'true';
+    const restoreNativeActionButton = (button) => {
+      delete button.dataset.qq2007Nav;
+      for (const icon of button.querySelectorAll(':scope > .qq2007-native-nav-icon')) icon.remove();
+      for (const glyph of button.querySelectorAll('[data-qq2007-native-nav-glyph]')) {
+        delete glyph.dataset.qq2007NativeNavGlyph;
+      }
+    };
+    const isNativeRowAction = (button) => Boolean(
+      button.closest('[data-app-action-sidebar-thread-id], [data-app-action-sidebar-thread-row], [data-app-action-sidebar-project-row], [data-qq2007-thread-row], [data-qq2007-folder-row], [data-qq2007-native-profile-footer], [data-qq2007-native-help]')
+    );
+    const skipNavAria = /(置顶|归档|帮助|个人资料|开始新聊天|侧边栏选项|archive|pin chat|help menu)/i;
+    const definitions = [
+      [/(新建任务|新对话|new\s*task|new\s*chat|new\s*conversation)/i, 'toolNew', 'new-task'],
+      [/(已安排|定时安排|scheduled)/i, 'toolScheduled', 'scheduled'],
+      [/(插件|plugins?)/i, 'toolPlugins', 'plugins'],
+      [/(站点|sites?)/i, 'toolSites', 'sites'],
+      [/(拉取请求|pull\s*requests?)/i, 'toolPullRequests', 'pull-requests'],
+      [/^聊天$/i, 'toolChat', 'chat'],
+    ];
+    for (const button of aside.querySelectorAll('button, a')) {
+      if (button.closest('[id^="qq2007-"]')) continue;
+      if (isNativeRowAction(button) || skipNavAria.test(normalize(button.getAttribute('aria-label')))) {
+        restoreNativeActionButton(button);
+        continue;
+      }
+      const text = normalize(button.textContent);
+      const aria = normalize(button.getAttribute('aria-label'));
+      const definition = definitions.find(([pattern, , key]) => (
+        key === 'chat' ? pattern.test(text) : (pattern.test(text) || pattern.test(aria))
+      ));
+      if (!definition) {
+        if (button.dataset.qq2007Nav) restoreNativeActionButton(button);
+        continue;
+      }
+      button.dataset.qq2007Nav = definition[2];
+      if (definition[2] === 'new-task' && button.parentElement) {
+        // Codex renders “New task” as a split action: the text button and the
+        // trailing plus button share a native rounded paint host. Decorate that
+        // host so the skin can remove the extra native pill without hiding or
+        // intercepting either native action.
+        button.parentElement.dataset.qq2007NativeNavPaintHost = 'new-task';
+      }
+      // Codex keeps its own outline glyph inside a small flex slot. The QQ
+      // service image is the visual icon for this skin, so tag only that
+      // native glyph slot for removal; leave the button and its text intact.
+      delete button.dataset.qq2007NativeNavGlyph;
+      for (const nativeSvg of button.querySelectorAll('svg')) {
+        let glyphSlot = nativeSvg;
+        const parent = nativeSvg.parentElement;
+        if (parent && parent !== button && parent.childElementCount === 1) glyphSlot = parent;
+        glyphSlot.dataset.qq2007NativeNavGlyph = 'true';
+      }
+      if (!button.querySelector(':scope > .qq2007-native-nav-icon')) {
+        button.insertBefore(makeImage(config.assets[definition[1]], '', 'qq2007-native-nav-icon'), button.firstChild);
+      }
+    }
+    const pluginButton = Array.from(aside.querySelectorAll('button, a')).find((button) => (
+      !button.closest('[id^="qq2007-"]') && /^插件$/i.test(normalize(button.textContent))
+    ));
+    if (pluginButton && !byId('qq2007-left-chat-shortcut')) {
+      const chat = create('button', 'qq2007-injected-nav');
+      chat.id = 'qq2007-left-chat-shortcut';
+      chat.type = 'button';
+      chat.title = '聊天';
+      chat.appendChild(makeImage(config.assets.toolChat, '', 'qq2007-native-nav-icon'));
+      chat.appendChild(create('span', '', '聊天'));
+      chat.addEventListener('click', focusComposer);
+      pluginButton.insertAdjacentElement('afterend', chat);
+    }
+    const sectionLabels = new Set(['置顶', '项目', '展开显示', '任务', '最近']);
+    for (const node of aside.querySelectorAll('span, div, p, h2, h3')) {
+      if (node.closest('[id^="qq2007-"]')) continue;
+      if (sectionLabels.has(normalize(node.textContent)) && node.children.length === 0) {
+        (node.closest('button') || node.parentElement || node).dataset.qq2007SectionHeading = 'true';
+      }
+    }
+    for (const toggle of aside.querySelectorAll('[data-app-action-sidebar-section-toggle]')) {
+      toggle.dataset.qq2007SectionHeading = 'true';
+      const row = toggle.closest('[class*="nav-section-title"]');
+      if (row) row.dataset.qq2007SectionRow = 'true';
+      const section = toggle.closest('section');
+      if (section) section.dataset.qq2007Section = 'true';
+    }
+    for (const row of aside.querySelectorAll('[role="button"], [data-app-action-sidebar-project-row], [data-app-action-sidebar-thread-id]')) {
+      if (row.closest('[id^="qq2007-"]')) continue;
+      delete row.dataset.qq2007FolderRow;
+      delete row.dataset.qq2007ThreadRow;
+      if (row.hasAttribute('data-app-action-sidebar-project-row')) {
+        row.dataset.qq2007FolderRow = 'true';
+        for (const node of row.querySelectorAll('[data-qq2007-thread-more]')) node.remove();
+        continue;
+      }
+      if (row.hasAttribute('data-app-action-sidebar-thread-id') || row.hasAttribute('data-app-action-sidebar-thread-row')) {
+        row.dataset.qq2007ThreadRow = 'true';
+        ensureThreadMoreButton(row);
+      } else {
+        for (const node of row.querySelectorAll('[data-qq2007-thread-more]')) node.remove();
+      }
+    }
+  };
+
+  const retainSidebarChrome = () => {
+    const aside = document.querySelector('aside.app-shell-left-panel');
+    if (!aside || isSettingsSurface()) return;
+    const header = byId('qq2007-left-header');
+    if (header && header.parentElement !== aside) aside.appendChild(header);
+    const profile = byId('qq2007-left-profile');
+    if (profile && profile.parentElement !== aside) aside.appendChild(profile);
+  };
+  const retainSidebarSkin = (forcedCollapsed) => {
+    if (hasNativeApprovalSurface() || isSettingsSurface()) return;
+    syncSidebarCollapsed(forcedCollapsed);
+    retainSidebarChrome();
+    decorateNativeSidebar();
+    syncMainTitleFrame();
+  };
+  let sidebarRetainFrame = 0;
+  const queueRetainSidebarSkin = () => {
+    if (sidebarRetainFrame) return;
+    sidebarRetainFrame = window.requestAnimationFrame(() => {
+      sidebarRetainFrame = 0;
+      retainSidebarSkin();
+    });
+  };
+
+  const updateDynamicContent = () => {
+    // Native approval cards update their own content while awaiting a decision.
+    // Do not touch their ancestor tree or force a layout refresh mid-interaction.
+    if (hasNativeApprovalSurface()) return;
+    decorateNativeSidebar();
+    syncNativeOutputOverlay();
+    syncSidebarCollapsed();
+    syncMainTitleFrame();
+    const sessionTitle = readSessionTitle();
+    for (const node of document.querySelectorAll('[data-qq-session-title]')) setText(node, `Codex 2007 - ${sessionTitle}`);
+    for (const node of document.querySelectorAll('[data-qq-main-title]')) setText(node, sessionTitle);
+    const visibleModelLabel = state.nativeModelButton
+      ? Array.from(state.nativeModelButton.querySelectorAll('[class*="ModelPickerTriggerLabel"], [class*="dropdownLabelValueContent"]'))
+        .find((node) => isVisible(node) && normalize(node.textContent))
+      : null;
+    const rawModelLabel = normalize(
+      visibleModelLabel?.textContent
+      || state.nativeModelButton?.getAttribute('aria-label')
+      || state.nativeModelButton?.textContent,
+    );
+    const modelLabel = rawModelLabel.length > 24 ? `${rawModelLabel.slice(0, 22)}…` : rawModelLabel;
+    setText(document.querySelector('[data-qq-model-label]'), modelLabel || '选择模型');
+    const excludedFriendLabels = /^(Codex|新建任务|新对话|拉取请求|Pull Request|站点|已安排|定时安排|插件|聊天|置顶|项目|任务|New task|New chat|New conversation)$/i;
+    const friendNames = new Set(Array.from(document.querySelectorAll('aside.app-shell-left-panel [role="button"]'))
+      .filter((node) => !node.closest('[id^="qq2007-"]'))
+      .map((node) => normalize(node.textContent))
+      .filter((text) => text.length > 3 && !excludedFriendLabels.test(text)));
+    const total = Math.max(1, friendNames.size);
+    const online = state.lastAgentState === 'online' ? Math.min(2, total) : 0;
+    setText(document.querySelector('[data-qq-friend-count]'), `我的好友 (${online}/${total})`);
+    setText(document.querySelector('[data-qq-bot-card-line]'), `智能伙伴 · 会话 ${total} · 写代码 / 改 Bug`);
+    const now = new Date();
+    const clock = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    for (const node of document.querySelectorAll('[data-qq-clock]')) {
+      setText(node, clock);
+      node.dateTime = now.toISOString();
+    }
+  };
+
+  const findLayout = () => {
+    stampCompatSelectors();
+    const rootHost = document.getElementById('root');
+    const aside = document.querySelector('aside.app-shell-left-panel') || document.querySelector('aside');
+    const main = document.querySelector('main.main-surface') || document.querySelector('main[class*="MainContentSurface"]') || document.querySelector('main');
+    if (!rootHost || !aside || !main) return null;
+    const root = Array.from(rootHost.children).find((child) => child.contains(aside) && child.contains(main))
+      || rootHost.firstElementChild;
+    if (!root) return null;
+    let workspace = Array.from(root.children).find((child) => child.contains(aside) && child.contains(main));
+    if (!workspace) {
+      workspace = aside.parentElement;
+      while (workspace && !workspace.contains(main)) workspace = workspace.parentElement;
+    }
+    if (!workspace) return null;
+    const isTopbar = (element) => (
+      element
+      && element !== workspace
+      && !element.contains(main)
+      && !main.contains(element)
+      && (
+        element.classList?.contains('app-header-tint')
+        || (element.classList?.contains('h-toolbar') && element.classList?.contains('draggable'))
+      )
+    );
+    const topbar = Array.from(rootHost.children).find(isTopbar)
+      || Array.from(root.children).find(isTopbar)
+      || Array.from(rootHost.querySelectorAll('.app-header-tint, .h-toolbar.draggable')).find((candidate) => isTopbar(candidate));
+    if (!topbar) return null;
+    const shellRoot = topbar.parentElement === rootHost ? rootHost : root;
+    const shellWorkspace = shellRoot === rootHost
+      ? (Array.from(rootHost.children).find((child) => child.contains(aside) && child.contains(main)) || workspace)
+      : workspace;
+    return { root: shellRoot, workspace: shellWorkspace, topbar, aside, main };
+  };
+
+  const removeNormalThemeArtifacts = () => {
+    for (const id of ['qq2007-window-title', 'qq2007-toolbar', 'qq2007-left-header', 'qq2007-left-profile', 'qq2007-main-title', 'qq2007-right-panel', 'qq2007-composer-chrome', 'qq2007-statusbar', 'qq2007-toast', 'qq2007-left-chat-shortcut', 'qq2007-home-welcome']) byId(id)?.remove();
+    for (const node of document.querySelectorAll('.qq2007-native-nav-icon, .qq2007-folder-icon, .qq2007-home-card-badge, .qq2007-home-card-copy, .qq2007-message-action-icon, .qq2007-message-action-label, [data-qq2007-thread-more]')) node.remove();
+    for (const node of document.querySelectorAll('[data-qq2007-shell-host], [data-qq2007-workspace-host], [data-qq2007-row-host], [data-qq2007-topbar-host], [data-qq2007-nav], [data-qq2007-native-nav-paint-host], [data-qq2007-native-nav-glyph], [data-qq2007-folder-row], [data-qq2007-thread-row], [data-qq2007-section-heading], [data-qq2007-section-row], [data-qq2007-section], [data-qq2007-native-aside-header], [data-qq2007-native-search], [data-qq2007-native-profile-footer], [data-qq2007-native-profile-host], [data-qq2007-native-profile-paint-host], [data-qq2007-native-profile-trigger], [data-qq2007-native-help], [data-qq2007-native-update-action], [data-qq2007-native-update-slot], [data-qq2007-native-update-active], [data-qq2007-native-model-trigger], [data-qq2007-native-send-trigger], [data-qq2007-home-suggestions], [data-qq2007-home-prompt], [data-qq2007-home-card], [data-qq2007-home-native-card-body], [data-qq2007-message-action], [data-qq2007-message-actions], [data-qq2007-message-time], [data-qq2007-message-native-icon], pre[data-qq2007-code-language]')) {
+      for (const attribute of Array.from(node.attributes)) {
+        if (attribute.name.startsWith('data-qq2007-')) node.removeAttribute(attribute.name);
+      }
+    }
+  };
+  const clearSettingsDecorations = () => {
+    byId('qq2007-settings-title')?.remove();
+    document.documentElement.removeAttribute('data-qq2007-settings-surface');
+    for (const node of document.querySelectorAll('[data-qq2007-settings-host], [data-qq2007-settings-topbar], [data-qq2007-settings-sidebar], [data-qq2007-settings-column], [data-qq2007-settings-navigation-host], [data-qq2007-settings-navigation], [data-qq2007-settings-main], [data-qq2007-settings-back], [data-qq2007-settings-search], [data-qq2007-settings-row], [data-qq2007-settings-heading], [data-qq2007-settings-card]')) {
+      for (const attribute of Array.from(node.attributes)) {
+        if (attribute.name.startsWith('data-qq2007-settings-')) node.removeAttribute(attribute.name);
+      }
+    }
+  };
+  const commonAncestor = (nodes) => {
+    if (!nodes.length) return null;
+    let candidate = nodes[0].parentElement;
+    while (candidate && !nodes.every((node) => candidate.contains(node))) candidate = candidate.parentElement;
+    return candidate;
+  };
+  const findSettingsMain = (root, sidebar) => {
+    const heading = Array.from(root.querySelectorAll('h1, h2')).find(isVisible);
+    const direct = heading?.closest('main, [role="main"]');
+    if (direct) return direct;
+    let current = sidebar;
+    while (current?.parentElement && current.parentElement !== root) {
+      const peer = Array.from(current.parentElement.children).find((node) => node !== current && node.contains(heading));
+      if (peer) return peer;
+      current = current.parentElement;
+    }
+    return heading?.parentElement || null;
+  };
+  const decorateSettingsSurface = () => {
+    const root = document.getElementById('root');
+    if (!root) return;
+    if (state.settingsPaused) clearSettingsDecorations();
+    root.dataset.qq2007SettingsHost = 'true';
+    document.documentElement.dataset.qq2007SettingsSurface = 'true';
+    const topbar = Array.from(root.querySelectorAll('header, div')).find((node) => {
+      const rectangle = node.getBoundingClientRect();
+      return isVisible(node)
+        && rectangle.y <= 2
+        && rectangle.width >= window.innerWidth * 0.9
+        && (node.classList.contains('group/application-menu-top-bar') || node.tagName === 'HEADER');
+    });
+    if (topbar) {
+      topbar.dataset.qq2007SettingsTopbar = 'true';
+      let title = byId('qq2007-settings-title');
+      if (!title) title = makeSettingsTitle();
+      if (title.parentElement !== topbar) topbar.appendChild(title);
+    }
+    const search = findSettingsSearch(root);
+    const searchHost = search?.closest('form, div') || search?.parentElement;
+    if (searchHost) searchHost.dataset.qq2007SettingsSearch = 'true';
+    const back = Array.from(root.querySelectorAll('button, a, [role="button"], [role="link"]')).find((node) => /^(返回应用|back to app)$/i.test(normalize(node.textContent)));
+    if (back) back.dataset.qq2007SettingsBack = 'true';
+    const rows = Array.from(root.querySelectorAll('[data-settings-panel-slug]'));
+    for (const row of rows) row.dataset.qq2007SettingsRow = 'true';
+    const settingsContent = commonAncestor([...rows, searchHost, back].filter(Boolean));
+    // The common ancestor is the inner vertical stack, not the settings pane.
+    // Applying the 300px sidebar flex basis to that stack turns 300px into its
+    // height because its parent is a column flexbox.  Always decorate the real
+    // app-shell aside when it exists so the basis remains a horizontal width.
+    const sidebar = settingsContent?.closest('aside.app-shell-left-panel') || settingsContent;
+    if (sidebar) sidebar.dataset.qq2007SettingsSidebar = 'true';
+    // The native settings pane wraps its controls in one or more auto-height
+    // columns. Flex growth on the scrollport cannot cross those wrappers, so
+    // mark the complete sidebar -> content height chain explicitly.
+    let settingsColumn = settingsContent;
+    while (settingsColumn && settingsColumn !== sidebar) {
+      settingsColumn.dataset.qq2007SettingsColumn = 'true';
+      settingsColumn = settingsColumn.parentElement;
+    }
+    // Codex keeps the category list in a smaller independently scrollable
+    // container. Mark that exact container instead of expanding the entire
+    // sidebar: it preserves the real buttons while allowing the list to use
+    // every remaining pixel below the search field.
+    const navigationCandidates = [];
+    let navigation = rows[0]?.parentElement || null;
+    while (navigation && navigation !== sidebar?.parentElement) {
+      if (rows.every((row) => navigation.contains(row))) {
+        navigationCandidates.push(navigation);
+      }
+      if (navigation === sidebar) break;
+      navigation = navigation.parentElement;
+    }
+    const settingsNavigation = navigationCandidates.find((node) => {
+      const style = getComputedStyle(node);
+      return /(?:auto|scroll)/.test(style.overflowY) || node.scrollHeight > node.clientHeight + 2;
+    }) || navigationCandidates[0];
+    if (settingsNavigation) {
+      settingsNavigation.dataset.qq2007SettingsNavigation = 'true';
+      // Some Codex builds add another wrapper between the content column and
+      // the real scrollport. It must also flex-fill or the list collapses to a
+      // single row despite both endpoints having the right declarations.
+      let navigationHost = settingsNavigation.parentElement;
+      while (navigationHost && navigationHost !== settingsContent && navigationHost !== sidebar) {
+        navigationHost.dataset.qq2007SettingsNavigationHost = 'true';
+        navigationHost = navigationHost.parentElement;
+      }
+    }
+    const main = findSettingsMain(root, sidebar);
+    if (main) {
+      main.dataset.qq2007SettingsMain = 'true';
+      for (const heading of main.querySelectorAll('h1, h2, h3')) heading.dataset.qq2007SettingsHeading = 'true';
+      const mainRect = main.getBoundingClientRect();
+      const cards = new Set();
+      for (const control of main.querySelectorAll('[role="switch"], button[aria-haspopup="menu"], button[aria-expanded]')) {
+        let candidate = control.parentElement;
+        while (candidate && candidate !== main) {
+          const rectangle = candidate.getBoundingClientRect();
+          const controlCount = candidate.querySelectorAll('[role="switch"], button[aria-haspopup="menu"], button[aria-expanded]').length;
+          if (rectangle.width >= Math.max(360, mainRect.width * 0.55) && rectangle.height >= 76 && rectangle.height <= 460 && controlCount >= 2) {
+            cards.add(candidate);
+            break;
+          }
+          candidate = candidate.parentElement;
+        }
+      }
+      for (const card of cards) card.dataset.qq2007SettingsCard = 'true';
+    }
+  };
+  const activateSettingsTheme = () => {
+    if (!state.settingsPaused) removeNormalThemeArtifacts();
+    document.documentElement.classList.add('codex-2007');
+    decorateSettingsSurface();
+    state.settingsPaused = true;
+  };
+  state.refreshSettingsTheme = () => {
+    if (!isSettingsSurface()) return false;
+    activateSettingsTheme();
+    return true;
+  };
+  const ensureLayout = () => {
+    const layout = findLayout();
+    if (!layout) return false;
+    layout.root.dataset.qq2007ShellHost = 'true';
+    layout.workspace.dataset.qq2007WorkspaceHost = 'true';
+    layout.topbar.dataset.qq2007TopbarHost = 'true';
+    if (!byId('qq2007-window-title')) layout.topbar.appendChild(makeWindowTitle());
+    let toolbar = byId('qq2007-toolbar');
+    if (!toolbar) toolbar = makeToolbar();
+    if (toolbar.parentElement !== layout.root || toolbar.nextElementSibling !== layout.workspace) layout.root.insertBefore(toolbar, layout.workspace);
+    let leftHeader = byId('qq2007-left-header');
+    if (!leftHeader || !leftHeader.querySelector('img')) {
+      leftHeader?.remove();
+      leftHeader = makeLeftHeader();
+      layout.aside.appendChild(leftHeader);
+    }
+    let leftProfile = byId('qq2007-left-profile');
+    if (!leftProfile || !leftProfile.querySelector('#qq2007-left-user') || !leftProfile.querySelector('.qq2007-left-user-signature') || !leftProfile.querySelector('[data-qq2007-gary-avatar]') || !leftProfile.querySelector('.qq2007-left-help')) {
+      leftProfile?.remove();
+      leftProfile = makeLeftProfile();
+      layout.aside.appendChild(leftProfile);
+    }
+    const mainHeader = layout.main.querySelector('header.app-header-tint');
+    if (mainHeader && !byId('qq2007-main-title')) mainHeader.appendChild(makeMainTitle());
+    syncMainTitleFrame();
+    let right = byId('qq2007-right-panel');
+    if (!right || !right.querySelector('.qq2007-friend-stage') || !right.querySelector('.qq2007-bot-stage') || right.querySelector('[data-qq2007-right-tab]')) {
+      right?.remove();
+      right = makeRightPanel();
+    }
+    const row = layout.aside?.parentElement;
+    if (row && (row.contains(layout.main) || row.querySelector('main'))) {
+      row.dataset.qq2007RowHost = 'true';
+      if (right.parentElement !== row) row.appendChild(right);
+    } else if (right.parentElement !== layout.workspace) {
+      layout.workspace.appendChild(right);
+    }
+    let statusbar = byId('qq2007-statusbar');
+    if (!statusbar) statusbar = makeStatusBar();
+    if (statusbar.parentElement !== layout.root || layout.workspace.nextElementSibling !== statusbar) {
+      layout.workspace.insertAdjacentElement('afterend', statusbar);
+    }
+    detectComposerControls();
+    const composer = findComposer();
+    let composerChrome = byId('qq2007-composer-chrome');
+    if (composer && (!composerChrome || !composerChrome.querySelector('.qq2007-send-button'))) {
+      composerChrome?.remove();
+      composerChrome = makeComposerChrome();
+      composer.appendChild(composerChrome);
+    }
+    decorateHomeSurface();
+    decorateMessageContent();
+    syncMainTitleFrame();
+    if (!byId('qq2007-toast')) {
+      const toast = makeToast();
+      toast.dataset.visible = 'false';
+      (document.body || document.documentElement).appendChild(toast);
+    } else {
+      byId('qq2007-toast').dataset.visible = 'false';
+    }
+    return Boolean(
+      byId('qq2007-window-title')
+      && byId('qq2007-toolbar')
+      && byId('qq2007-left-header')
+      && byId('qq2007-left-profile')
+      && byId('qq2007-main-title')
+      && byId('qq2007-right-panel')
+      && byId('qq2007-composer-chrome')
+      && byId('qq2007-statusbar')
+      && byId('qq2007-toast')
+    );
+  };
+
+  const reconcile = () => {
+    state.reconcileQueued = false;
+    if (localStorage.getItem(DISABLED_KEY) === '1') return;
+    if (hasNativeApprovalSurface()) return;
+    if (isSettingsSurface()) {
+      activateSettingsTheme();
+      return;
+    }
+    if (state.settingsPaused) {
+      state.settingsPaused = false;
+      clearSettingsDecorations();
+      document.documentElement.classList.add('codex-2007');
+    }
+    if (Date.now() < state.sidebarAnimatingUntil) {
+      retainSidebarSkin();
+      return;
+    }
+    ensureLayout();
+    decorateHomeSurface();
+    decorateMessageContent();
+    for (const node of document.querySelectorAll('main [class*="max-w-3xl"], main [class*="thread-content-max-width"], main [class*="thread-body-max-width"], main [class*="TableContainer"], main [class*="TableScroller"], main [class*="TableWrapper"]')) {
+      node.dataset.qq2007WideThread = 'true';
+    }
+    renameTextNodes();
+    renameAttributes();
+    updateBalance();
+    updateTokenLevel();
+    updateAgentState();
+    updateDynamicContent();
+  };
+  const queueReconcile = () => {
+    if (hasNativeApprovalSurface()) return;
+    if (state.reconcileQueued) return;
+    state.reconcileQueued = true;
+    setTimer(reconcile, 100);
+  };
+
+  state.cleanup = ({ restoreText = true } = {}) => {
+    state.observer?.disconnect();
+    state.observer = null;
+    clearManagedTimers();
+    clearNativeEnvDock(state.nativeEnvHost);
+    state.nativeEnvHost = null;
+    clearSettingsDecorations();
+    for (const id of [
+      'qq2007-window-title', 'qq2007-toolbar', 'qq2007-left-header', 'qq2007-left-profile', 'qq2007-main-title',
+      'qq2007-right-panel', 'qq2007-composer-chrome', 'qq2007-statusbar', 'qq2007-toast',
+      'qq2007-left-chat-shortcut', 'qq2007-home-welcome', STYLE_ID,
+    ]) byId(id)?.remove();
+    for (const node of document.querySelectorAll('.qq2007-native-nav-icon, .qq2007-folder-icon, .qq2007-home-card-badge, .qq2007-home-card-copy, [data-qq2007-thread-more]')) node.remove();
+    for (const node of document.querySelectorAll('[data-qq2007-shell-host], [data-qq2007-workspace-host], [data-qq2007-row-host], [data-qq2007-topbar-host], [data-qq2007-nav], [data-qq2007-native-nav-paint-host], [data-qq2007-native-nav-glyph], [data-qq2007-folder-row], [data-qq2007-thread-row], [data-qq2007-section-heading], [data-qq2007-section-row], [data-qq2007-section], [data-qq2007-native-aside-header], [data-qq2007-native-search], [data-qq2007-native-profile-footer], [data-qq2007-native-profile-host], [data-qq2007-native-profile-paint-host], [data-qq2007-native-profile-trigger], [data-qq2007-native-help], [data-qq2007-native-update-action], [data-qq2007-native-update-slot], [data-qq2007-native-update-active], [data-qq2007-native-model-trigger], [data-qq2007-native-send-trigger], [data-qq2007-home-suggestions], [data-qq2007-home-prompt], [data-qq2007-home-card], [data-qq2007-home-native-card-body], pre[data-qq2007-code-language]')) {
+      delete node.dataset.qq2007ShellHost;
+      delete node.dataset.qq2007WorkspaceHost;
+      delete node.dataset.qq2007RowHost;
+      delete node.dataset.qq2007TopbarHost;
+      delete node.dataset.qq2007Nav;
+      delete node.dataset.qq2007NativeNavPaintHost;
+      delete node.dataset.qq2007NativeNavGlyph;
+      delete node.dataset.qq2007FolderRow;
+      delete node.dataset.qq2007ThreadRow;
+      delete node.dataset.qq2007Collapsed;
+      delete node.dataset.qq2007SectionHeading;
+      delete node.dataset.qq2007NativeAsideHeader;
+      delete node.dataset.qq2007NativeSearch;
+      delete node.dataset.qq2007NativeProfileFooter;
+      delete node.dataset.qq2007NativeProfileHost;
+      delete node.dataset.qq2007NativeProfilePaintHost;
+      delete node.dataset.qq2007NativeProfileTrigger;
+      delete node.dataset.qq2007NativeHelp;
+      delete node.dataset.qq2007NativeUpdateAction;
+      delete node.dataset.qq2007NativeUpdateSlot;
+      delete node.dataset.qq2007NativeUpdateActive;
+      delete node.dataset.qq2007NativeModelTrigger;
+      delete node.dataset.qq2007NativeSendTrigger;
+      delete node.dataset.qq2007HomeSuggestions;
+      delete node.dataset.qq2007HomePrompt;
+      delete node.dataset.qq2007HomeCard;
+      delete node.dataset.qq2007HomeCardKind;
+      delete node.dataset.qq2007HomeNativeCardBody;
+      delete node.dataset.qq2007MessageAction;
+      delete node.dataset.qq2007MessageActions;
+      delete node.dataset.qq2007MessageTime;
+      delete node.dataset.qq2007MessageNativeIcon;
+      delete node.dataset.qq2007CodeLanguage;
+    }
+    if (restoreText) {
+      for (const [node, original] of state.textRenames) if (node.isConnected) node.nodeValue = original;
+      for (const [element, originals] of state.attributeRenames) {
+        if (!element.isConnected) continue;
+        for (const [attribute, original] of originals) {
+          if (original === null) element.removeAttribute(attribute);
+          else element.setAttribute(attribute, original);
+        }
+        delete element.dataset.qq2007Renamed;
+      }
+    }
+    state.textRenames.clear();
+    state.attributeRenames.clear();
+    document.documentElement.classList.remove('codex-2007');
+    for (const property of ['--qq2007-title-bg', '--qq2007-toolbar-bg', '--qq2007-panel-header-bg', '--qq2007-status-bg', '--qq2007-send-bg', '--qq2007-folder-bg']) {
+      document.documentElement.style.removeProperty(property);
+    }
+    if (state.onSidebarTriggerPointerDown) {
+      document.removeEventListener('pointerdown', state.onSidebarTriggerPointerDown, true);
+      state.onSidebarTriggerPointerDown = null;
+    }
+    document.removeEventListener('visibilitychange', updateAgentState);
+    window.removeEventListener('online', updateAgentState);
+    window.removeEventListener('offline', updateAgentState);
+    window.removeEventListener('resize', queueReconcile);
+    if (state.settingsPoller) window.clearInterval(state.settingsPoller);
+    state.settingsPoller = null;
+    state.refreshSettingsTheme = null;
+    if (window[STATE_KEY] === state) delete window[STATE_KEY];
+  };
+
+  installStyle();
+  setAssetVariables();
+  const settingsAtStartup = isSettingsSurface();
+  document.documentElement.classList.add('codex-2007');
+  if (settingsAtStartup) activateSettingsTheme();
+  const initialLayoutReady = settingsAtStartup || ensureLayout();
+  if (!settingsAtStartup) {
+    renameTextNodes();
+    renameAttributes();
+    updateBalance();
+    updateTokenLevel();
+    updateAgentState();
+    updateDynamicContent();
+  }
+  state.observer = new MutationObserver((mutations) => {
+    let sidebarStructure = false;
+    for (const mutation of mutations) {
+      if (mutation.type === 'attributes' && mutation.attributeName === 'aria-expanded') {
+        sidebarStructure = true;
+        break;
+      }
+      if (mutation.type !== 'childList') continue;
+      const target = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;
+      if (target?.closest?.('aside.app-shell-left-panel')) {
+        sidebarStructure = true;
+        break;
+      }
+    }
+    if (sidebarStructure) queueRetainSidebarSkin();
+    queueReconcile();
+  });
+  state.observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+    characterData: true,
+    attributes: true,
+    attributeFilter: ['aria-label', 'title', 'aria-current', 'data-active', 'aria-expanded'],
+  });
+  const onSidebarTriggerPointerDown = (event) => {
+    if (!(event.target instanceof Element)) return;
+    const trigger = event.target.closest('[data-app-shell-sidebar-trigger="true"]');
+    if (!trigger) return;
+    const willCollapse = trigger.getAttribute('aria-expanded') !== 'false';
+    retainSidebarSkin(willCollapse);
+    for (const delay of [32, 80, 160, 280, 450, 650]) setTimer(() => retainSidebarSkin(), delay);
+  };
+  state.onSidebarTriggerPointerDown = onSidebarTriggerPointerDown;
+  document.addEventListener('pointerdown', onSidebarTriggerPointerDown, true);
+  document.addEventListener('visibilitychange', updateAgentState);
+  window.addEventListener('online', updateAgentState);
+  window.addEventListener('offline', updateAgentState);
+  window.addEventListener('resize', queueReconcile);
+  // Settings is a SPA surface whose root can be replaced without a reliable
+  // mutation boundary. A small idempotent poll closes that race and is paused
+  // automatically with the page; it never touches normal task layout.
+  state.settingsPoller = window.setInterval(() => {
+    if (isSettingsSurface()) state.refreshSettingsTheme?.();
+  }, 400);
+  const interval = window.setInterval(() => {
+    if (hasNativeApprovalSurface()) {
+      updateAgentState();
+      return;
+    }
+    updateAgentState();
+    updateBalance();
+    updateDynamicContent();
+  }, 1000);
+  state.timers.add(interval);
+  const bootToast = byId('qq2007-toast');
+  if (bootToast) bootToast.dataset.visible = 'false';
+
+  return {
+    pass: initialLayoutReady,
+    reason: initialLayoutReady ? null : 'native-shell-not-ready',
+    version: state.version,
+    visualVersion: 'Codex 2007',
+    nodes: {
+      titlebar: Boolean(byId('qq2007-window-title')),
+      toolbar: Boolean(byId('qq2007-toolbar')),
+      mainTitle: Boolean(byId('qq2007-main-title')),
+      rightPanel: Boolean(byId('qq2007-right-panel')),
+      composerChrome: Boolean(byId('qq2007-composer-chrome')),
+      statusbar: Boolean(byId('qq2007-statusbar')),
+    },
+  };
+})()

@@ -1,0 +1,2685 @@
+/* Codex 2007 visual layer — independently implemented over the native Codex DOM. */
+
+html.codex-2007 {
+  --qq2007-left-width: clamp(232px, 19vw, 280px);
+  --qq2007-right-width: clamp(216px, 16vw, 232px);
+  --thread-content-max-width: 100% !important;
+  --thread-body-max-width: 100% !important;
+  color-scheme: light !important;
+}
+
+html.codex-2007,
+html.codex-2007 body {
+  background: #1768b4 !important;
+  height: 100% !important;
+  overflow: hidden !important;
+}
+
+html.codex-2007 #root {
+  height: 100% !important;
+  max-height: 100% !important;
+}
+
+html.codex-2007 body,
+html.codex-2007 button,
+html.codex-2007 input,
+html.codex-2007 textarea {
+  font-family: Tahoma, "Microsoft YaHei UI", "Microsoft YaHei", sans-serif !important;
+}
+
+html.codex-2007 [data-qq2007-shell-host="true"] {
+  background: #d8ecfa !important;
+  border: 1px solid #07559f;
+  box-shadow: inset 0 0 0 1px #73b3e7;
+  box-sizing: border-box;
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+html.codex-2007 [data-qq2007-topbar-host="true"] {
+  inset: auto !important;
+  position: relative !important;
+  width: 100% !important;
+  background-color: #0b62b5 !important;
+  background-image: var(--qq2007-title-bg) !important;
+  background-position: center !important;
+  background-size: 100% 100% !important;
+  border-bottom: 1px solid #06417e !important;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 48%), inset 0 -1px 0 rgb(0 38 90 / 62%);
+  flex: 0 0 42px !important;
+  height: 42px !important;
+  min-height: 42px !important;
+  padding: 0 !important;
+  position: relative !important;
+}
+
+html.codex-2007 [data-qq2007-topbar-host="true"] > :not(#qq2007-window-title) {
+  display: none !important;
+}
+
+#qq2007-window-title {
+  align-items: center;
+  box-sizing: border-box;
+  color: #fff;
+  display: flex;
+  inset: 0;
+  padding: 0 calc(var(--spacing-token-safe-header-right, 137px) + 8px) 0 8px;
+  pointer-events: none;
+  position: absolute;
+  text-shadow: 0 1px 2px #083c79;
+  user-select: none;
+  z-index: 4;
+}
+
+.qq2007-title-identity {
+  align-items: center;
+  display: flex;
+  gap: 7px;
+  min-width: 0;
+}
+
+.qq2007-title-identity img {
+  height: 31px;
+  object-fit: contain;
+  width: 30px;
+}
+
+.qq2007-title-identity span {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#qq2007-toolbar {
+  display: none !important;
+  flex: 0 0 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+}
+#qq2007-toolbar-orig {
+  align-items: center;
+  background-color: #e6f4ff;
+  background-image: var(--qq2007-toolbar-bg);
+  background-position: center;
+  background-size: 100% 100%;
+  border: 1px solid #4d8fc6;
+  border-left-color: #78b1dc;
+  border-radius: 4px;
+  box-shadow: inset 0 1px 0 #fff, 0 1px 1px rgb(18 75 124 / 24%);
+  box-sizing: border-box;
+  display: flex;
+  flex: 0 0 54px;
+  gap: 3px;
+  height: 54px;
+  margin: 5px 7px 6px;
+  min-height: 54px;
+  overflow: hidden;
+  padding: 2px 10px;
+  position: relative;
+  user-select: none;
+  z-index: 39;
+}
+
+.qq2007-tool-button {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  color: #111f34;
+  cursor: pointer;
+  display: flex;
+  flex: 0 0 auto;
+  font-size: 14px;
+  font-weight: 500;
+  gap: 5px;
+  height: 44px;
+  justify-content: center;
+  min-width: 104px;
+  padding: 2px 7px;
+}
+
+.qq2007-tool-button + .qq2007-tool-button {
+  border-left-color: rgb(50 96 136 / 20%);
+}
+
+.qq2007-tool-button:hover,
+.qq2007-tool-button:focus-visible {
+  background: rgb(255 255 255 / 62%);
+  border-color: #76aeda;
+  box-shadow: inset 0 0 0 1px #fff;
+  outline: 0;
+}
+
+.qq2007-tool-button:active {
+  background: rgb(162 211 245 / 70%);
+  box-shadow: inset 0 1px 3px rgb(15 70 118 / 24%);
+}
+
+.qq2007-tool-button img {
+  height: 31px;
+  object-fit: contain;
+  width: 31px;
+}
+
+html.codex-2007 [data-qq2007-workspace-host="true"] {
+  background: #cbe3f5 !important;
+  display: flex !important;
+  flex: 1 1 auto !important;
+  flex-direction: column !important;
+  gap: 6px;
+  height: auto !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  padding: 0 7px 4px;
+}
+
+html.codex-2007 [data-qq2007-workspace-host="true"] > [class*="ApplicationMenuTopBar"] {
+  align-items: center !important;
+  background: linear-gradient(#f4fafd, #d5e8f6) !important;
+  border: 1px solid #7aa7cc !important;
+  border-radius: 3px !important;
+  box-shadow: inset 0 1px 0 #fff !important;
+  color: #163352 !important;
+  flex: 0 0 28px !important;
+  font-family: Tahoma, "Microsoft YaHei UI", "Microsoft YaHei", sans-serif !important;
+  font-size: 12px !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  padding: 0 8px !important;
+  pointer-events: auto !important;
+  visibility: visible !important;
+}
+
+html.codex-2007 [data-qq2007-row-host="true"] {
+  align-items: stretch !important;
+  display: flex !important;
+  flex: 1 1 auto !important;
+  flex-direction: row !important;
+  gap: 6px !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  width: 100% !important;
+}
+
+html.codex-2007 [data-qq2007-row-host="true"] > [class*="MainContentClip"] {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  min-width: 0 !important;
+}
+
+html.codex-2007 [data-qq2007-row-host="true"] > aside.app-shell-left-panel,
+html.codex-2007 [data-qq2007-row-host="true"] > #qq2007-right-panel,
+html.codex-2007 [data-qq2007-row-host="true"] > [class*="MainContentClip"] {
+  align-self: stretch !important;
+  height: auto !important;
+  min-height: 0 !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel {
+  background: #eef7fd !important;
+  border: 1px solid #4f8ec0 !important;
+  border-radius: 4px 4px 0 0;
+  box-shadow: inset 0 0 0 1px #fff;
+  box-sizing: border-box;
+  flex: 0 0 var(--qq2007-left-width) !important;
+  min-width: var(--qq2007-left-width) !important;
+  overflow: hidden !important;
+  position: relative !important;
+  transition: flex-basis 180ms ease, width 180ms ease, min-width 180ms ease, max-width 180ms ease, opacity 160ms ease, border-width 160ms ease !important;
+  width: var(--qq2007-left-width) !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel > div.max-w-full {
+  background: #f4f9fd !important;
+  box-sizing: border-box;
+  max-width: 100% !important;
+  padding-bottom: calc(56px + var(--qq2007-update-height, 0px)) !important;
+  padding-top: 36px !important;
+  width: 100% !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-aside-header="true"],
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-search="true"],
+html.codex-2007 aside.app-shell-left-panel .ms-2.flex.items-center.pe-1 {
+  display: none !important;
+  height: 0 !important;
+  margin: 0 !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-profile-host="true"] {
+  overflow: visible !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-profile-paint-host="true"] {
+  contain: none !important;
+  overflow: visible !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel #app-shell-sidebar {
+  contain: none !important;
+  isolation: auto !important;
+  overflow: visible !important;
+  padding-top: 0 !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-profile-footer="true"] {
+  align-items: stretch !important;
+  background: transparent !important;
+  bottom: -52px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  height: auto !important;
+  justify-content: flex-end !important;
+  left: 0 !important;
+  min-height: 52px !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  position: absolute !important;
+  right: auto !important;
+  top: auto !important;
+  width: var(--qq2007-left-width) !important;
+  z-index: 120 !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-profile-footer="true"] .border-t-hairline {
+  display: none !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-help="true"],
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-help="true"]:hover,
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-help="true"]:focus-visible {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  height: 22px !important;
+  margin: 0 !important;
+  min-height: 22px !important;
+  min-width: 22px !important;
+  opacity: .01 !important;
+  outline: 0 !important;
+  padding: 0 !important;
+  pointer-events: auto !important;
+  position: absolute !important;
+  right: 8px !important;
+  top: 15px !important;
+  visibility: visible !important;
+  width: 22px !important;
+  z-index: 140 !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-help="true"] svg {
+  display: none !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-profile-footer="true"] button.rounded-full.bg-chart-blue,
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-profile-footer="true"] button.rounded-full.bg-chart-blue:hover,
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-profile-footer="true"] button.rounded-full.bg-chart-blue:focus-visible,
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-update-action="true"],
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-update-action="true"]:hover,
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-update-action="true"]:focus-visible {
+  align-items: center !important;
+  background: var(--color-chart-blue, #2b7fff) !important;
+  border: 0 !important;
+  border-radius: 9999px !important;
+  box-shadow: none !important;
+  clip-path: circle(50%) !important;
+  color: #fff !important;
+  display: grid !important;
+  grid-template-columns: 0fr !important;
+  height: 22px !important;
+  justify-content: center !important;
+  margin: 0 !important;
+  max-width: 22px !important;
+  min-height: 22px !important;
+  min-width: 22px !important;
+  opacity: 1 !important;
+  outline: 0 !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  pointer-events: auto !important;
+  position: absolute !important;
+  right: 8px !important;
+  top: 15px !important;
+  visibility: visible !important;
+  width: 22px !important;
+  z-index: 141 !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-profile-footer="true"] button.rounded-full.bg-chart-blue > span:has(svg),
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-profile-footer="true"] button.rounded-full.bg-chart-blue:hover > span:has(svg),
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-profile-footer="true"] button.rounded-full.bg-chart-blue:focus-visible > span:has(svg),
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-update-action="true"] > span:has(svg),
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-update-action="true"]:hover > span:has(svg),
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-update-action="true"]:focus-visible > span:has(svg) {
+  display: flex !important;
+  opacity: 1 !important;
+  transform: none !important;
+  visibility: visible !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-profile-footer="true"] button.rounded-full.bg-chart-blue svg,
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-update-action="true"] svg {
+  color: #fff !important;
+  display: block !important;
+  height: 12px !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  width: 12px !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-profile-footer="true"] button.rounded-full.bg-chart-blue:has(svg) > span:not(:has(svg)),
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-update-action="true"]:has(svg) > span:not(:has(svg)) {
+  display: none !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel:has([data-qq2007-native-profile-footer="true"] button.rounded-full.bg-chart-blue) .qq2007-left-help,
+html.codex-2007 aside.app-shell-left-panel:has([data-qq2007-native-update-action="true"]) .qq2007-left-help,
+html.codex-2007 aside.app-shell-left-panel[data-qq2007-update-action="true"] .qq2007-left-help {
+  visibility: hidden !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-update-slot="true"]:empty,
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-update-slot="true"][data-qq2007-native-update-active="false"] {
+  display: none !important;
+  height: 0 !important;
+  margin: 0 !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-update-slot="true"]:not(:empty),
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-update-slot="true"][data-qq2007-native-update-active="true"] {
+  background: linear-gradient(#f7fcff, #d7ecf8) !important;
+  border: 1px solid #6ea0c8 !important;
+  border-bottom-color: #5c96c2 !important;
+  box-shadow: inset 1px 1px 0 #fff !important;
+  box-sizing: border-box !important;
+  color: #123a63 !important;
+  display: block !important;
+  font-size: 12px !important;
+  height: auto !important;
+  line-height: 16px !important;
+  margin: 0 0 1px !important;
+  min-height: 28px !important;
+  opacity: 1 !important;
+  overflow: visible !important;
+  padding: 5px 8px !important;
+  pointer-events: auto !important;
+  visibility: visible !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-profile-footer="true"] > :last-child {
+  background: transparent !important;
+  height: 52px !important;
+  min-height: 52px !important;
+  opacity: 1 !important;
+  overflow: visible !important;
+  pointer-events: auto !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-profile-trigger="true"],
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-profile-trigger="true"]:hover {
+  background: transparent !important;
+  box-shadow: none !important;
+  display: flex !important;
+  height: 52px !important;
+  inset: auto 36px 0 0 !important;
+  margin: 0 !important;
+  opacity: .001 !important;
+  outline: 0 !important;
+  pointer-events: auto !important;
+  position: absolute !important;
+  width: auto !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-thread-row="true"] button[aria-label],
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-thread-row="true"] button[aria-label]:hover,
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-folder-row="true"] button[aria-label],
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-folder-row="true"] button[aria-label]:hover {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-thread-row="true"] button[aria-label] svg,
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-folder-row="true"] button[aria-label] svg,
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-thread-row="true"] [data-qq2007-native-nav-glyph],
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-folder-row="true"] [data-qq2007-native-nav-glyph] {
+  display: block !important;
+  height: 16px !important;
+  opacity: 1 !important;
+  overflow: visible !important;
+  width: 16px !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-thread-row="true"] .qq2007-native-nav-icon,
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-folder-row="true"] .qq2007-native-nav-icon {
+  display: none !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-thread-row="true"] [data-qq2007-thread-rail="true"] {
+  min-width: 76px !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  width: auto !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-thread-row="true"]:hover [data-qq2007-thread-rail="true"],
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-thread-row="true"]:focus-within [data-qq2007-thread-rail="true"] {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-thread-more="true"],
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-thread-more="true"]:hover {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  color: #17283d !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  flex: 0 0 20px !important;
+  height: 20px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  pointer-events: auto !important;
+  position: static !important;
+  transform: none !important;
+  width: 20px !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-thread-row="true"] > [data-qq2007-thread-more="true"] {
+  opacity: 0 !important;
+}
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-thread-row="true"]:hover > [data-qq2007-thread-more="true"],
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-thread-row="true"]:focus-within > [data-qq2007-thread-more="true"] {
+  opacity: 1 !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-thread-more="true"] svg {
+  display: block !important;
+  height: 16px !important;
+  overflow: visible !important;
+  width: 16px !important;
+}
+
+#qq2007-left-header {
+  align-items: center;
+  background-color: #e5f2fc;
+  background-image: var(--qq2007-panel-header-bg);
+  background-position: center;
+  background-size: 100% 100%;
+  border: 0;
+  border-bottom: 1px solid #70a2ca;
+  box-shadow: inset 0 1px 0 #fff;
+  color: #071d3d;
+  cursor: pointer;
+  display: flex;
+  gap: 6px;
+  height: 36px;
+  left: 0;
+  padding: 2px 8px;
+  position: absolute;
+  right: 0;
+  top: 0;
+  z-index: 70;
+}
+
+#qq2007-left-header > img:first-child {
+  height: 27px;
+  object-fit: contain;
+  width: 27px;
+}
+
+#qq2007-left-header strong {
+  font-size: 14px;
+  text-align: left;
+}
+
+.qq2007-left-caret {
+  height: 18px;
+  margin-left: auto;
+  object-fit: cover;
+  width: 18px;
+}
+
+html.codex-2007 aside.app-shell-left-panel button:not(.bg-chart-blue):not([data-qq2007-native-update-action="true"]),
+html.codex-2007 aside.app-shell-left-panel a {
+  border-radius: 0 !important;
+  color: #17283d !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel button:not(.bg-chart-blue):not([data-qq2007-native-update-action="true"]):hover,
+html.codex-2007 aside.app-shell-left-panel a:hover {
+  background: #d7edfc !important;
+  box-shadow: inset 0 0 0 1px #8dc1e8 !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel [aria-current="page"],
+html.codex-2007 aside.app-shell-left-panel [data-active="true"] {
+  background: #c4e2f7 !important;
+  box-shadow: inset 0 0 0 1px #6aa6d4 !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-nav] {
+  align-items: center !important;
+  display: flex !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-nav] svg,
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-nav] [data-qq2007-native-nav-glyph="true"],
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-nav] img:not(.qq2007-native-nav-icon) {
+  display: none !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  width: 0 !important;
+}
+
+/* Codex groups “New task” and its trailing plus action inside a native rounded
+ * row. Remove both native paint layers, then paint one QQ2007 hover row so it
+ * behaves like the other service buttons without sacrificing either action. */
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-nav-paint-host="new-task"] {
+  background: transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-nav-paint-host="new-task"] > [data-qq2007-nav="new-task"],
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-nav-paint-host="new-task"] > [data-qq2007-nav="new-task"]:hover,
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-nav-paint-host="new-task"] > [data-qq2007-nav="new-task"]:focus-visible {
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: 0 !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-nav-paint-host="new-task"]:hover,
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-nav-paint-host="new-task"]:focus-within {
+  background: #d7edfc !important;
+  box-shadow: inset 0 0 0 1px #8dc1e8 !important;
+}
+
+.qq2007-native-nav-icon,
+.qq2007-tool-button img,
+.qq2007-composer-tool img,
+.qq2007-left-search img,
+.qq2007-friend-search img,
+.qq2007-status-icon,
+.qq2007-left-caret,
+.qq2007-folder-icon,
+.qq2007-home-card-badge img,
+.qq2007-settings-title-icon {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.qq2007-native-nav-icon {
+  display: block !important;
+  flex: 0 0 16px;
+  height: 16px !important;
+  margin: 0 6px 0 0;
+  object-fit: contain;
+  object-position: center;
+  width: 16px !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-folder-row="true"] {
+  align-items: center;
+  background-image: var(--qq2007-folder-bg) !important;
+  background-position: 8px center !important;
+  background-repeat: no-repeat !important;
+  background-size: 20px 17px !important;
+  padding-left: 0 !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-folder-row="true"] .icon-leading-slot svg,
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-folder-row="true"] [data-sidebar-project-drop-zone="project-icon"] svg {
+  display: none !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  visibility: hidden !important;
+  width: 0 !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-thread-row="true"] {
+  align-items: center;
+  background-image: var(--qq2007-thread-bg) !important;
+  background-position: 26px center !important;
+  background-repeat: no-repeat !important;
+  background-size: 16px 16px !important;
+  padding-left: 48px !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel[data-qq2007-collapsed="true"] {
+  border: 0 !important;
+  flex: 0 0 0px !important;
+  max-width: 0px !important;
+  min-width: 0px !important;
+  opacity: 0 !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  pointer-events: none !important;
+  width: 0px !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel[data-qq2007-collapsed="true"] #qq2007-left-header,
+html.codex-2007 aside.app-shell-left-panel[data-qq2007-collapsed="true"] #qq2007-left-profile {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel button[aria-label="搜索"],
+html.codex-2007 aside.app-shell-left-panel button[aria-label="Search"] {
+  display: none !important;
+}
+
+html.codex-2007 [data-qq2007-row-host="true"][data-qq2007-sidebar-collapsed="true"] {
+  gap: 0 !important;
+}
+
+#qq2007-left-chat-shortcut.qq2007-injected-nav {
+  align-items: center;
+  background: transparent !important;
+  border: 0 !important;
+  color: #17283d !important;
+  cursor: pointer;
+  display: flex;
+  font-size: 13px;
+  gap: 4px;
+  height: 36px;
+  padding: 0 12px;
+  text-align: left;
+  width: 100%;
+}
+
+html.codex-2007 aside.app-shell-left-panel [class*="group/nav-section-title"],
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-section-row="true"] {
+  background: linear-gradient(#f8fdff, #d5ebf8) !important;
+  border: 1px solid #5f93bf !important;
+  border-left-color: #d7eefb !important;
+  border-top-color: #f2f9fe !important;
+  border-radius: 2px !important;
+  box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 rgb(70 118 158 / 22%) !important;
+  box-sizing: border-box !important;
+  height: 22px !important;
+  margin: 2px 4px 1px !important;
+  max-height: 22px !important;
+  min-height: 22px !important;
+  opacity: 1 !important;
+  padding: 0 4px 0 3px !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel h2,
+html.codex-2007 aside.app-shell-left-panel [data-slot="section-title"],
+html.codex-2007 aside.app-shell-left-panel [data-app-action-sidebar-section-toggle],
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-section-heading="true"] {
+  background: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  color: #123a63 !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  height: 20px !important;
+  max-height: 20px !important;
+  min-height: 20px !important;
+  opacity: 1 !important;
+  padding: 0 2px !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel [data-app-action-sidebar-section-toggle] svg,
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-section-heading="true"] svg {
+  display: none !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel [data-app-action-sidebar-section-toggle]::before {
+  background-color: #eef7fd;
+  background-image:
+    linear-gradient(#1e4e7a, #1e4e7a),
+    linear-gradient(#f8fcff, #cfe6f6);
+  background-position: center, 0 0;
+  background-repeat: no-repeat;
+  background-size: 7px 2px, 100% 100%;
+  border: 1px solid #3d6c9a;
+  box-shadow: inset 1px 1px 0 #fff, 1px 1px 0 rgb(255 255 255 / 80%);
+  box-sizing: border-box;
+  content: "";
+  flex: 0 0 13px;
+  height: 13px;
+  margin-right: 5px;
+  width: 13px;
+}
+
+html.codex-2007 aside.app-shell-left-panel [data-app-action-sidebar-section-toggle][aria-expanded="false"]::before {
+  background-image:
+    linear-gradient(#1e4e7a, #1e4e7a),
+    linear-gradient(#1e4e7a, #1e4e7a),
+    linear-gradient(#f8fcff, #cfe6f6);
+  background-position: center, center, 0 0;
+  background-size: 7px 2px, 2px 7px, 100% 100%;
+}
+
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-section-row="true"] > :last-child button {
+  height: 16px !important;
+  min-height: 16px !important;
+  width: 16px !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel,
+html.codex-2007 aside.app-shell-left-panel * {
+  scrollbar-color: transparent !important;
+  scrollbar-width: none !important;
+}
+
+#qq2007-left-profile {
+  align-items: center;
+  background-color: #eef7fd;
+  border-top: 1px solid #5c96c2;
+  bottom: 0;
+  box-shadow: inset 0 1px 0 #fff;
+  box-sizing: border-box;
+  display: flex;
+  height: 52px;
+  left: 0;
+  padding-right: 8px;
+  position: absolute;
+  pointer-events: none;
+  right: 0;
+  z-index: 72;
+}
+
+.qq2007-left-help {
+  align-items: center;
+  background: linear-gradient(#f8fcff, #d4ebf8);
+  border: 1px solid #5f93bf;
+  border-radius: 2px;
+  box-shadow: inset 1px 1px 0 #fff;
+  color: #163e6c;
+  cursor: default;
+  display: flex;
+  flex: 0 0 22px;
+  font-family: Tahoma, "Microsoft YaHei UI", sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  height: 22px;
+  justify-content: center;
+  line-height: 20px;
+  margin: 0 0 0 auto;
+  pointer-events: none;
+  width: 22px;
+  z-index: 73;
+}
+
+.qq2007-left-help:hover,
+.qq2007-left-help:focus-visible {
+  background: linear-gradient(#fff, #cfe6f6);
+  outline: 0;
+}
+
+.qq2007-left-search {
+  display: none !important;
+  height: 0 !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  pointer-events: none !important;
+}
+
+.qq2007-left-user {
+  align-items: center;
+  background: linear-gradient(#f7fcff, #e7f3fb) !important;
+  border: 0 !important;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: flex;
+  flex: 1;
+  gap: 8px;
+  height: 52px;
+  min-width: 0;
+  padding: 4px 8px 4px 7px;
+  width: auto;
+}
+
+#qq2007-left-user {
+  display: flex !important;
+  opacity: 1 !important;
+  pointer-events: none !important;
+  visibility: visible !important;
+}
+
+.qq2007-left-user > img {
+  background: #fff;
+  border: 1px solid #7aa7cc;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px #fff;
+  height: 36px;
+  object-fit: cover;
+  object-position: center 18%;
+  width: 36px;
+}
+
+.qq2007-left-user-copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.qq2007-left-user-name {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+
+.qq2007-left-user-copy strong,
+.qq2007-left-user-name strong {
+  color: #0b3d73;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qq2007-left-user-name .qq2007-level-badge {
+  flex: 0 0 auto;
+  margin-left: 0;
+}
+
+.qq2007-left-user-meta {
+  align-items: center;
+  color: #3d6f93;
+  display: flex;
+  font-size: 11px;
+  gap: 5px;
+  line-height: 16px;
+  min-width: 0;
+}
+
+.qq2007-left-user-online {
+  color: #2f8a18;
+  flex: 0 0 auto;
+  font-size: 11px;
+}
+
+.qq2007-left-user-signature {
+  color: #4a7a9a;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qq2007-status-icon {
+  height: 15px !important;
+  object-fit: contain;
+  width: 15px !important;
+}
+
+.qq2007-status-icon[data-state="busy"] {
+  filter: hue-rotate(300deg) saturate(1.8);
+}
+
+.qq2007-status-icon[data-state="away"] {
+  filter: grayscale(1);
+  opacity: .72;
+}
+
+.qq2007-left-search,
+.qq2007-friend-search {
+  align-items: center;
+  background: #fff !important;
+  border: 1px solid #74a9d0 !important;
+  box-shadow: inset 0 1px 2px rgb(20 76 118 / 12%) !important;
+  color: #778998 !important;
+  cursor: text;
+  display: flex;
+  font-size: 12px;
+  height: 30px;
+  margin: 3px 6px 4px;
+  padding: 0 7px;
+  pointer-events: auto;
+  text-align: left;
+  width: calc(100% - 12px);
+}
+
+.qq2007-left-search img,
+.qq2007-friend-search img {
+  height: 20px;
+  margin-left: auto;
+  object-fit: contain;
+  width: 22px;
+}
+
+html.codex-2007 main.main-surface {
+  background: #fbfdff !important;
+  border: 1px solid #4e8dbc;
+  border-radius: 4px 4px 0 0 !important;
+  box-shadow: inset 0 0 0 1px #fff;
+  min-width: 0 !important;
+  overflow: hidden;
+}
+
+html.codex-2007 .thread-scroll-container,
+html.codex-2007 .app-shell-main-content-viewport,
+html.codex-2007 main.main-surface .thread-scroll-container,
+html.codex-2007 main {
+  box-sizing: border-box !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  padding-right: 0 !important;
+}
+html.codex-2007 [data-qq2007-wide-thread="true"],
+html.codex-2007 main [class*="max-w-3xl"],
+html.codex-2007 main [class*="thread-content-max-width"],
+html.codex-2007 main [class*="thread-body-max-width"],
+html.codex-2007 main [class*="TableContainer"],
+html.codex-2007 main [class*="TableScroller"],
+html.codex-2007 main [class*="TableWrapper"],
+html.codex-2007 main table {
+  box-sizing: border-box !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  width: 100% !important;
+}
+html.codex-2007 main [class*="overflow-x-auto"],
+html.codex-2007 main .overflow-x-auto,
+html.codex-2007 main [class*="overflow-x-clip"],
+html.codex-2007 main .overflow-x-clip {
+  max-width: 100% !important;
+  min-width: 0 !important;
+  overflow-x: visible !important;
+}
+html.codex-2007 main article,
+html.codex-2007 main [data-message-author-role],
+html.codex-2007 main [class*="_markdownContent_"] {
+  box-sizing: border-box !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  width: 100% !important;
+}
+html.codex-2007 main table {
+  border-collapse: collapse !important;
+  display: table !important;
+  max-width: none !important;
+  table-layout: auto !important;
+  width: 100% !important;
+}
+html.codex-2007 main th,
+html.codex-2007 main td {
+  overflow-wrap: anywhere !important;
+  white-space: normal !important;
+  word-break: break-word !important;
+}
+
+html.codex-2007 main.main-surface > header.app-header-tint {
+  background-color: #e4f2fc !important;
+  background-image: var(--qq2007-panel-header-bg) !important;
+  background-position: center !important;
+  background-size: 100% 100% !important;
+  border: 1px solid #72a5cd !important;
+  border-radius: 4px !important;
+  box-shadow: inset 0 1px 0 #fff !important;
+  box-sizing: border-box !important;
+  color: #132b4c !important;
+  flex: 0 0 46px !important;
+  height: 46px !important;
+  inset: auto !important;
+  left: auto !important;
+  min-height: 46px !important;
+  overflow: hidden !important;
+  position: relative !important;
+  right: auto !important;
+  top: auto !important;
+  width: 100% !important;
+}
+
+html.codex-2007 [class*="ApplicationMenuTopBar"] button {
+  color: #163352 !important;
+  font-size: 12px !important;
+}
+
+/* Native environment panel stays in the original Codex overlay.
+ * Do not collapse it; the 环境信息 tab no longer docks/hides it. */
+html.codex-2007 [data-qq2007-docked-env="true"] {
+  pointer-events: auto !important;
+}
+
+html.codex-2007 [data-qq2007-docked-env="true"] > div,
+html.codex-2007 [data-qq2007-docked-env="true"] [class*="origin-top-right"],
+html.codex-2007 [data-qq2007-docked-env="true"] [class*="max-h-full"] {
+  height: 100% !important;
+  max-height: 100% !important;
+  max-width: 100% !important;
+  width: 100% !important;
+}
+
+html.codex-2007 [data-qq2007-docked-env="true"] [class*="pe-4"] {
+  padding-right: 0 !important;
+}
+
+html.codex-2007 [data-qq2007-docked-env="true"] [class*="bg-surface-elevated-secondary"] {
+  background: #eef7fd !important;
+  border: 1px solid #7aa7cc !important;
+  border-radius: 0 !important;
+  box-shadow: inset 0 0 0 1px #fff !important;
+  color: #14324f !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  width: 100% !important;
+}
+
+html.codex-2007 main.main-surface > header.app-header-tint button {
+  color: #174d79 !important;
+}
+
+html.codex-2007 main.main-surface > header.app-header-tint > :not(#qq2007-main-title) {
+  display: none !important;
+}
+
+#qq2007-main-title {
+  align-items: center;
+  color: #11284a;
+  display: flex;
+  gap: 6px;
+  height: 100%;
+  min-width: 0;
+  padding: 0 8px;
+  pointer-events: none;
+  width: 100%;
+}
+
+#qq2007-main-title img {
+  flex: 0 0 24px;
+  height: 24px;
+  image-rendering: auto;
+  object-fit: contain;
+  width: 24px;
+}
+
+#qq2007-main-title strong {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html.codex-2007 .app-shell-main-content-viewport,
+html.codex-2007 main.main-surface > div {
+  background: #fbfdff !important;
+  --conversation-item-gap: 10px;
+}
+
+html.codex-2007 main.main-surface article,
+html.codex-2007 main.main-surface [data-message-author-role],
+html.codex-2007 main.main-surface [class*="_markdownContent_"] {
+  color: #1a252e !important;
+  font-family: Tahoma, "Microsoft YaHei UI", "Microsoft YaHei", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  text-rendering: optimizeLegibility;
+}
+
+html.codex-2007 main.main-surface [class*="_markdownContent_"] p {
+  line-height: 20px !important;
+  margin: 0 !important;
+}
+
+html.codex-2007 main.main-surface [class*="_markdownContent_"] p + p {
+  margin-top: 10px !important;
+}
+
+html.codex-2007 main.main-surface [class*="_markdownContent_"] :is(h1, h2, h3, h4) {
+  color: #111b24 !important;
+  font-family: Tahoma, "Microsoft YaHei UI", "Microsoft YaHei", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 22px !important;
+  margin: 12px 0 8px !important;
+}
+
+html.codex-2007 main.main-surface [class*="_markdownContent_"] :is(ul, ol) {
+  margin: 7px 0 11px !important;
+  padding-left: 25px !important;
+}
+
+html.codex-2007 main.main-surface [class*="_markdownContent_"] li {
+  line-height: 23px !important;
+  margin: 0 !important;
+  padding-left: 2px !important;
+}
+
+html.codex-2007 main.main-surface [class*="_markdownContent_"] li::marker {
+  color: #1475c8 !important;
+  font-size: 1.04em;
+}
+
+html.codex-2007 main.main-surface :not(pre) > code,
+html.codex-2007 main.main-surface .inline-markdown {
+  background: #eef6fc !important;
+  border: 1px solid #aecbe1 !important;
+  border-radius: 4px !important;
+  box-shadow: inset 0 1px 0 #fff !important;
+  color: #14283b !important;
+  font-family: Consolas, "Courier New", monospace !important;
+  font-size: 12px !important;
+  line-height: 18px !important;
+  padding: 1px 6px !important;
+}
+
+html.codex-2007 main.main-surface pre {
+  background: #f4f9fd !important;
+  border: 1px solid #78aeda !important;
+  border-radius: 8px !important;
+  box-shadow: inset 0 0 0 1px #fff !important;
+  color: #111827 !important;
+  font-family: Consolas, "Courier New", monospace !important;
+  font-size: 13px !important;
+  line-height: 22px !important;
+  margin: 12px 0 !important;
+  overflow: hidden !important;
+  padding: 35px 14px 13px !important;
+  position: relative !important;
+}
+
+html.codex-2007 main.main-surface pre::before {
+  color: #506981;
+  content: attr(data-qq2007-code-language);
+  font-family: Tahoma, "Microsoft YaHei UI", sans-serif;
+  font-size: 11px;
+  left: 12px;
+  line-height: 18px;
+  position: absolute;
+  text-transform: lowercase;
+  top: 9px;
+}
+
+html.codex-2007 main.main-surface pre code {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  color: #14202b !important;
+  font-family: Consolas, "Courier New", monospace !important;
+  font-size: 13px !important;
+  line-height: 22px !important;
+  padding: 0 !important;
+}
+
+html.codex-2007 main.main-surface pre button,
+html.codex-2007 main.main-surface [data-testid*="copy" i] {
+  color: #0d4d83 !important;
+  opacity: 1 !important;
+}
+
+html.codex-2007 main.main-surface pre button {
+  border: 0 !important;
+  border-radius: 3px !important;
+  right: 7px !important;
+  top: 6px !important;
+}
+
+[data-qq2007-home-prompt="true"] {
+  display: none !important;
+}
+
+html.codex-2007 [class*="ComposerHomeUtilityBar"],
+html.codex-2007 [class*="HomeUtilityBar"] {
+  display: none !important;
+}
+
+#qq2007-home-welcome {
+  background: #f8fcff;
+  border: 1px solid #4e91c4;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px #fff, 0 1px 3px rgb(25 81 125 / 22%);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  height: 126px;
+  left: 16px;
+  overflow: hidden;
+  pointer-events: none;
+  position: absolute;
+  right: 16px;
+  top: var(--qq2007-home-welcome-top, -80px);
+  z-index: 4;
+}
+
+.qq2007-home-welcome-header {
+  align-items: center;
+  background-color: #e4f2fc;
+  background-image: var(--qq2007-panel-header-bg);
+  background-position: center;
+  background-size: 100% 100%;
+  border-bottom: 1px solid #79a9cf;
+  color: #11294e;
+  display: flex;
+  flex: 0 0 29px;
+  font-family: Tahoma, "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
+  font-size: 12px;
+  gap: 5px;
+  padding: 0 8px;
+}
+
+.qq2007-home-welcome-header img {
+  height: 25px;
+  object-fit: contain;
+  width: 25px;
+}
+
+.qq2007-home-welcome-status {
+  align-items: center;
+  color: #3a6c25;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 400;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.qq2007-home-welcome-status::before {
+  background: #73b938;
+  border: 1px solid #3e8618;
+  border-radius: 50%;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 85%);
+  content: '';
+  height: 8px;
+  width: 8px;
+}
+
+.qq2007-home-welcome-body {
+  align-items: flex-start;
+  background: #fbfdff;
+  color: #142637;
+  display: flex;
+  flex: 1;
+  flex-direction: row;
+  font-family: Tahoma, "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
+  gap: 10px;
+  justify-content: center;
+  padding: 7px 15px 6px 18px;
+}
+
+.qq2007-home-welcome-copy {
+  align-self: center;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.qq2007-home-welcome-copy strong {
+  font-size: 16px;
+  line-height: 22px;
+}
+
+.qq2007-home-welcome-copy span {
+  color: #54708a;
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.qq2007-home-welcome-copy em {
+  color: #7d5a22;
+  font-size: 11px;
+  font-style: normal;
+  line-height: 15px;
+}
+
+.qq2007-home-welcome-whisper {
+  align-self: center;
+  background: #fff9d9;
+  border: 1px solid #ddb66b;
+  box-shadow: inset 0 1px 0 #fff, 1px 1px 0 rgb(156 104 20 / 18%);
+  color: #68490f;
+  display: flex;
+  flex: 0 0 164px;
+  flex-direction: column;
+  font-size: 11px;
+  gap: 2px;
+  line-height: 15px;
+  margin: 0 2px;
+  padding: 6px 8px;
+  transform: rotate(-1deg);
+}
+
+.qq2007-home-welcome-whisper strong {
+  color: #9a5c06;
+  font-size: 11px;
+}
+
+.qq2007-home-welcome-bot {
+  align-self: end;
+  height: 90px;
+  margin: -2px 3px -6px 0;
+  object-fit: cover;
+  object-position: center 40%;
+  width: 108px;
+}
+
+[data-qq2007-home-suggestions="true"] {
+  transform: translateY(-92px);
+  z-index: 5;
+}
+
+[data-qq2007-home-card="true"] {
+  background: linear-gradient(#fff, #f6fbff 61%, #dcebfa) !important;
+  border: 1px solid #5c9ed1 !important;
+  border-radius: 2px !important;
+  box-shadow: inset 0 0 0 1px #fff, 1px 2px 0 rgb(22 94 147 / 14%) !important;
+  color: #1c3143 !important;
+  font-family: Tahoma, "Microsoft YaHei UI", "Microsoft YaHei", sans-serif !important;
+  min-height: 116px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  position: relative !important;
+  text-align: left !important;
+}
+
+[data-qq2007-home-card="true"]::before {
+  background-color: #e4f2fc;
+  background-image: var(--qq2007-panel-header-bg);
+  background-position: center;
+  background-size: 100% 100%;
+  border-bottom: 1px solid #73a6ce;
+  color: #1a4f7d;
+  content: 'Codex 2007 快捷任务';
+  font-size: 11px;
+  font-weight: 700;
+  left: 0;
+  letter-spacing: .15px;
+  line-height: 25px;
+  padding: 0 8px;
+  position: absolute;
+  right: 0;
+  text-shadow: 0 1px 0 #fff;
+  top: 0;
+}
+
+[data-qq2007-home-card="true"]:hover,
+[data-qq2007-home-card="true"]:focus-visible {
+  background: linear-gradient(#fffef2, #f4faff 62%, #d7ecfc) !important;
+  border-color: #176fb1 !important;
+  box-shadow: inset 0 0 0 1px #fff, 0 0 0 1px #9cc8e7, 1px 2px 0 rgb(19 89 143 / 24%) !important;
+  color: #092d58 !important;
+}
+
+[data-qq2007-home-card="true"] [data-qq2007-home-native-card-body="true"] {
+  visibility: hidden !important;
+}
+
+[data-qq2007-home-card="true"]::after {
+  color: #2378b5;
+  content: '›';
+  font-family: Tahoma, sans-serif;
+  font-size: 24px;
+  line-height: 24px;
+  position: absolute;
+  right: 11px;
+  text-shadow: 0 1px 0 #fff;
+  top: calc(50% + 2px);
+}
+
+.qq2007-home-card-badge {
+  align-items: center;
+  background: linear-gradient(#f8fdff, #cce7fa);
+  border: 1px solid #75a9cf;
+  box-shadow: inset 0 1px 0 #fff;
+  display: flex;
+  height: 31px;
+  justify-content: center;
+  left: 12px;
+  position: absolute;
+  top: 39px;
+  width: 31px;
+}
+
+.qq2007-home-card-badge img {
+  height: 24px;
+  object-fit: contain;
+  width: 24px;
+}
+
+.qq2007-home-card-copy {
+  bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  left: 54px;
+  position: absolute;
+  right: 28px;
+  top: 38px;
+}
+
+.qq2007-home-card-copy strong {
+  color: #123f6b;
+  font-size: 14px;
+  line-height: 19px;
+  text-shadow: 0 1px 0 #fff;
+}
+
+.qq2007-home-card-copy span {
+  color: #3c6380;
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.qq2007-home-card-copy em {
+  color: #8b6a2c;
+  font-size: 10px;
+  font-style: normal;
+  line-height: 15px;
+  margin-top: auto;
+}
+
+[data-qq2007-home-card="true"][data-qq2007-home-card-kind="review"] .qq2007-home-card-badge,
+[data-qq2007-home-card="true"][data-qq2007-home-card-kind="repair"] .qq2007-home-card-badge {
+  background: linear-gradient(#fafff8, #dff2cf);
+  border-color: #84b267;
+}
+
+/* Completed-message controls keep the native buttons and click handlers. The
+ * skin only replaces their glyphs and adds the compact QQ 2007 labels. */
+html.codex-2007 [data-qq2007-message-actions="true"] {
+  align-items: center !important;
+  gap: 2px !important;
+  opacity: 1 !important;
+}
+
+html.codex-2007 button[data-qq2007-message-action] {
+  align-items: center !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-radius: 2px !important;
+  box-sizing: border-box !important;
+  color: #49667e !important;
+  display: inline-flex !important;
+  font-family: Tahoma, "Microsoft YaHei UI", sans-serif !important;
+  font-size: 11px !important;
+  gap: 2px !important;
+  height: 24px !important;
+  justify-content: center !important;
+  min-width: 36px !important;
+  padding: 1px 4px !important;
+  width: auto !important;
+}
+
+html.codex-2007 button[data-qq2007-message-action]:hover,
+html.codex-2007 button[data-qq2007-message-action]:focus-visible,
+html.codex-2007 button[data-qq2007-message-action][aria-pressed="true"] {
+  background: linear-gradient(#fff, #e6f4ff) !important;
+  border-color: #82add0 !important;
+  box-shadow: inset 0 1px 0 #fff !important;
+  color: #174d77 !important;
+  outline: 0 !important;
+}
+
+html.codex-2007 button[data-qq2007-message-action] [data-qq2007-message-native-icon="true"] {
+  display: none !important;
+}
+
+.qq2007-message-action-icon {
+  display: block;
+  flex: 0 0 18px;
+  height: 18px;
+  overflow: visible;
+  width: 18px;
+}
+
+.qq2007-message-action-label {
+  line-height: 18px;
+  pointer-events: none;
+  text-shadow: 0 1px 0 #fff;
+}
+
+html.codex-2007 [data-qq2007-message-time="true"] {
+  color: #6d7d8c !important;
+  font-family: Tahoma, "Microsoft YaHei UI", sans-serif !important;
+  font-size: 11px !important;
+}
+
+html.codex-2007 .composer-surface-chrome {
+  background: #fff !important;
+  border: 1px solid #4d8fc5 !important;
+  border-radius: 4px !important;
+  box-shadow: 0 2px 6px rgb(23 80 124 / 18%), inset 0 0 0 1px #d9efff !important;
+  min-height: 142px !important;
+  overflow: visible !important;
+  position: relative !important;
+  z-index: 20 !important;
+}
+
+html.codex-2007 .composer-surface-chrome:focus-within {
+  border-color: #176cad !important;
+  box-shadow: 0 0 0 2px rgb(92 170 222 / 22%), 0 2px 6px rgb(23 80 124 / 18%) !important;
+}
+
+html.codex-2007 .composer-surface-chrome textarea,
+html.codex-2007 .composer-surface-chrome [contenteditable="true"] {
+  box-sizing: border-box !important;
+  min-height: 85px !important;
+  padding-bottom: 38px !important;
+  padding-top: 39px !important;
+}
+
+#qq2007-composer-chrome {
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 20;
+}
+
+.qq2007-composer-tools {
+  align-items: center;
+  background-color: #eef7fd;
+  background-image: var(--qq2007-toolbar-bg);
+  background-position: center;
+  background-size: 100% 100%;
+  border-bottom: 1px solid #88b4d5;
+  box-shadow: inset 0 1px 0 #fff;
+  display: flex;
+  height: 34px;
+  left: 1px;
+  padding: 0 8px;
+  pointer-events: auto;
+  position: absolute;
+  right: 1px;
+  top: 1px;
+}
+
+.qq2007-composer-tool {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  color: #173756;
+  cursor: pointer;
+  display: flex;
+  font-size: 11px;
+  gap: 2px;
+  height: 29px;
+  padding: 0 7px;
+}
+
+.qq2007-composer-tool:hover,
+.qq2007-composer-tool:focus-visible {
+  background: #fff;
+  border-color: #79acd3;
+  outline: 0;
+}
+
+.qq2007-composer-tool img {
+  display: block;
+  flex: 0 0 16px;
+  height: 16px;
+  object-fit: contain;
+  object-position: center;
+  width: 16px;
+}
+
+.qq2007-composer-lower {
+  align-items: center;
+  bottom: 6px;
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  left: 8px;
+  pointer-events: none;
+  position: absolute;
+  right: 8px;
+}
+
+.qq2007-model-button {
+  align-items: center;
+  background: linear-gradient(180deg, #fafdff 0%, #e7f4fd 48%, #cfe8f8 49%, #eaf6fd 100%);
+  border: 1px solid #659dcc;
+  border-radius: 3px;
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 92%), inset -1px -1px 0 rgb(83 142 188 / 28%);
+  color: #173d61;
+  cursor: pointer;
+  display: flex;
+  font-size: 11px;
+  gap: 5px;
+  height: 29px;
+  flex: 0 0 160px;
+  max-width: 160px;
+  overflow: hidden;
+  padding: 0 6px;
+  pointer-events: none !important;
+  white-space: nowrap;
+}
+.qq2007-model-button *,
+.qq2007-model-label,
+.qq2007-model-icon,
+.qq2007-model-caret {
+  pointer-events: none !important;
+}
+
+.qq2007-model-icon {
+  height: 18px;
+  image-rendering: auto;
+  object-fit: contain;
+  width: 18px;
+}
+
+.qq2007-model-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+}
+
+.qq2007-model-caret {
+  border-left: 1px solid #9bc1df;
+  height: 17px;
+  position: relative;
+  width: 15px;
+}
+
+.qq2007-model-caret::after {
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid #245f91;
+  content: '';
+  left: 5px;
+  position: absolute;
+  top: 7px;
+}
+
+html.codex-2007 .composer-surface-chrome [data-qq2007-native-attach-trigger="true"],
+html.codex-2007 .composer-surface-chrome [data-qq2007-native-access-trigger="true"] {
+  background: linear-gradient(180deg, #fbfdff 0%, #e8f5fd 48%, #d3eafa 49%, #edf8fe 100%) !important;
+  border: 1px solid #74a8d0 !important;
+  border-radius: 3px !important;
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 95%), inset -1px -1px 0 rgb(86 143 184 / 24%) !important;
+  color: #17466d !important;
+  gap: 4px !important;
+  height: 29px !important;
+}
+
+html.codex-2007 .composer-surface-chrome [data-qq2007-native-attach-trigger="true"] {
+  font-size: 0 !important;
+  padding: 0 !important;
+  width: 30px !important;
+}
+
+html.codex-2007 .composer-surface-chrome [data-qq2007-native-attach-trigger="true"] svg,
+html.codex-2007 .composer-surface-chrome [data-qq2007-native-access-trigger="true"] svg {
+  display: none !important;
+}
+
+html.codex-2007 .composer-surface-chrome [data-qq2007-native-attach-trigger="true"]::before,
+html.codex-2007 .composer-surface-chrome [data-qq2007-native-access-trigger="true"]::before {
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  content: '';
+  display: block;
+  flex: 0 0 18px;
+  height: 18px;
+  width: 18px;
+}
+
+html.codex-2007 .composer-surface-chrome [data-qq2007-native-attach-trigger="true"]::before {
+  background-image: var(--qq2007-composer-attach-bg);
+  margin: 0 auto;
+}
+
+html.codex-2007 .composer-surface-chrome [data-qq2007-native-access-trigger="true"]::before {
+  background-image: var(--qq2007-shield-bg);
+}
+
+html.codex-2007 .composer-surface-chrome [data-qq2007-native-attach-trigger="true"]:hover,
+html.codex-2007 .composer-surface-chrome [data-qq2007-native-access-trigger="true"]:hover,
+html.codex-2007 .composer-surface-chrome [data-qq2007-native-attach-trigger="true"]:focus-visible,
+html.codex-2007 .composer-surface-chrome [data-qq2007-native-access-trigger="true"]:focus-visible {
+  background: linear-gradient(180deg, #fffef4 0%, #fff3bd 48%, #f7d978 49%, #fff1ad 100%) !important;
+  border-color: #c58c25 !important;
+  outline: 0 !important;
+}
+
+html.codex-2007 .composer-surface-chrome [data-qq2007-native-context-indicator="true"] {
+  align-items: center !important;
+  background: linear-gradient(180deg, #f8fcff 0%, #e2f2fc 48%, #cae4f6 49%, #edf8fe 100%) !important;
+  border: 1px solid #75a8cf !important;
+  border-radius: 3px !important;
+  bottom: 7px !important;
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 94%) !important;
+  box-sizing: border-box !important;
+  color: #174b74 !important;
+  display: inline-flex !important;
+  font: 11px Tahoma, "Microsoft YaHei UI", sans-serif !important;
+  gap: 4px !important;
+  height: 29px !important;
+  justify-content: center !important;
+  padding: 0 6px !important;
+  pointer-events: auto !important;
+  position: absolute !important;
+  right: 286px !important;
+  top: auto !important;
+  width: 56px !important;
+  z-index: 45 !important;
+}
+
+html.codex-2007 .composer-surface-chrome [data-qq2007-native-context-indicator="true"]::after {
+  content: attr(data-qq2007-context-value);
+}
+
+html.codex-2007 .composer-surface-chrome [data-qq2007-native-model-trigger="true"] {
+  bottom: 7px !important;
+  height: 29px !important;
+  left: auto !important;
+  margin: 0 !important;
+  max-width: none !important;
+  opacity: .001 !important;
+  pointer-events: auto !important;
+  position: absolute !important;
+  right: 118px !important;
+  top: auto !important;
+  width: 160px !important;
+  z-index: 80 !important;
+}
+
+/* The visible QQ button remains decorative; this transparent, resized native
+ * control is the physical click target so the message is sent by Codex itself. */
+html.codex-2007 .composer-surface-chrome [data-qq2007-native-send-trigger="true"] {
+  bottom: 7px !important;
+  height: 31px !important;
+  left: auto !important;
+  margin: 0 !important;
+  max-width: none !important;
+  opacity: .001 !important;
+  pointer-events: auto !important;
+  position: absolute !important;
+  right: 34px !important;
+  top: auto !important;
+  width: 78px !important;
+  z-index: 40 !important;
+}
+
+.qq2007-model-button:hover,
+.qq2007-model-button:focus-visible {
+  border-color: #7aaed4;
+  outline: 0;
+}
+
+.qq2007-send-button,
+.qq2007-send-menu {
+  background-color: transparent;
+  background-image: var(--qq2007-send-bg);
+  background-repeat: no-repeat;
+  border: 0;
+  cursor: pointer;
+  height: 31px;
+  pointer-events: auto;
+}
+
+.qq2007-send-button {
+  background-position: left center;
+  background-size: 104px 31px;
+  margin-right: -6px;
+  pointer-events: none;
+  width: 78px;
+}
+
+.qq2007-send-menu {
+  background-position: right center;
+  background-size: 104px 31px;
+  width: 26px;
+}
+
+#qq2007-right-panel {
+  align-self: stretch;
+  background: #e7f3fc;
+  border: 1px solid #4f8fc1;
+  border-radius: 4px 4px 0 0;
+  box-shadow: inset 0 0 0 1px #fff;
+  box-sizing: border-box;
+  color: #132847;
+  display: flex;
+  flex: 0 0 var(--qq2007-right-width);
+  flex-direction: column;
+  height: auto !important;
+  min-height: 0;
+  min-width: var(--qq2007-right-width);
+  overflow: hidden;
+  position: relative;
+  user-select: none;
+  width: var(--qq2007-right-width);
+  z-index: 2;
+}
+
+.qq2007-right-tabs {
+  align-items: stretch;
+  display: flex;
+  flex: 1 1 auto;
+  height: 100%;
+  min-width: 0;
+}
+
+.qq2007-right-tab {
+  background: transparent;
+  border: 0;
+  border-right: 1px solid #73a6cd;
+  color: #2a5278;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+
+.qq2007-right-tab.is-active {
+  background: linear-gradient(#fff, #d4eaf8);
+  box-shadow: inset 0 1px 0 #fff;
+  color: #102850;
+  font-weight: 700;
+}
+
+.qq2007-right-header {
+  position: relative;
+  z-index: 9;
+}
+
+.qq2007-right-header > strong {
+  color: #102850;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.qq2007-right-header,
+.qq2007-friends-header {
+  align-items: center;
+  background-color: #e4f2fc;
+  background-image: var(--qq2007-panel-header-bg);
+  background-position: center;
+  background-size: 100% 100%;
+  border-bottom: 1px solid #73a6cd;
+  box-shadow: inset 0 1px 0 #fff;
+  box-sizing: border-box;
+  color: #102850;
+  display: flex;
+  flex: 0 0 36px;
+  font-size: 13px;
+  height: 36px;
+  justify-content: space-between;
+  padding: 0 8px;
+}
+
+.qq2007-right-controls {
+  height: 22px;
+  object-fit: contain;
+  width: 45px;
+}
+
+.qq2007-bot-stage {
+  align-items: stretch;
+  animation: qq2007-idle-bob 2.8s ease-in-out infinite;
+  background: #eef8ff;
+  border: 1px solid #6ea0c8;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px #fff, 0 1px 1px rgb(18 75 124 / 18%);
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: center;
+  overflow: hidden;
+  width: 100%;
+}
+
+.qq2007-bot-stage > .qq2007-motion-stage {
+  aspect-ratio: 3 / 4;
+  display: block;
+  height: auto;
+  margin: 0 auto;
+  overflow: hidden;
+  width: 100%;
+}
+
+.qq2007-friends-header {
+  border-top: 1px solid #5f98c5;
+  flex-basis: 34px;
+  height: 34px;
+  margin-top: 0;
+}
+
+.qq2007-friend-stage {
+  align-items: stretch;
+  background: #e7f5ff;
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: center;
+  overflow: hidden;
+  width: 100%;
+}
+.qq2007-friend-stage > .qq2007-motion-stage {
+  aspect-ratio: 240 / 320;
+  display: block;
+  height: auto;
+  width: 100%;
+}
+
+.qq2007-motion-stage > img {
+  display: block;
+  height: 100%;
+  object-fit: contain;
+  width: 100%;
+}
+.qq2007-bot-stage > .qq2007-motion-stage > img {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  width: 100%;
+}
+.qq2007-friend-stage > .qq2007-motion-stage > img {
+  aspect-ratio: 240 / 320;
+  height: auto;
+  image-rendering: auto;
+  object-fit: contain;
+  object-position: center center;
+  width: 100%;
+}
+
+.qq2007-motion-stage > .qq2007-motion-stage-static,
+.qq2007-friend-stage > .qq2007-motion-stage > .qq2007-motion-stage-static {
+  display: none;
+}
+
+.qq2007-bot-card {
+  background: linear-gradient(#f7fbff, #e8f3fc);
+  border: 0;
+  border-radius: 3px;
+  box-shadow: none;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  margin: 4px 5px;
+  overflow: visible;
+}
+
+.qq2007-bot-identity {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  display: flex;
+  flex: 0 0 22px;
+  gap: 5px;
+  height: 22px;
+  padding: 0 6px;
+}
+
+.qq2007-bot-identity strong {
+  color: #102952;
+  font-size: 12px;
+}
+
+.qq2007-level-badge {
+  background: #dc790d;
+  border: 1px solid #b15b00;
+  box-shadow: inset 0 1px 0 #ffd279;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  margin-left: auto;
+  padding: 0 4px;
+}
+
+.qq2007-level-icons {
+  align-items: center;
+  display: inline-flex;
+  gap: 1px;
+  margin-left: 4px;
+  min-height: 18px;
+  white-space: nowrap;
+}
+
+.qq2007-level-icons .qq2007-level-icon {
+  display: block;
+  height: 16px;
+  max-width: 18px;
+  object-fit: contain;
+  width: auto;
+}
+
+.qq2007-level-icons-status { gap: 0; margin-left: 2px; }
+.qq2007-level-icons-status .qq2007-level-icon { height: 12px; max-width: 14px; }
+
+.qq2007-signature {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  font-size: 11px;
+  line-height: 14px;
+  margin: 0;
+  padding: 1px 6px 3px;
+}
+
+.qq2007-signature strong {
+  font-size: 11px;
+}
+
+.qq2007-bot-card-line {
+  color: #355872;
+  font-size: 10px;
+  line-height: 13px;
+  margin-top: 1px;
+}
+
+.qq2007-signature-meta {
+  color: #4b708d;
+  font-size: 9px;
+  line-height: 12px;
+  margin-top: 1px;
+}
+
+.qq2007-right-tool-strip {
+  align-items: center;
+  background: linear-gradient(#f4fafe, #d7ebf8);
+  border-top: 1px solid #93bbd9;
+  display: flex;
+  flex: 0 0 28px;
+  height: 28px;
+  justify-content: space-around;
+  padding: 0 2px;
+  position: relative;
+}
+
+.qq2007-right-tool-button {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  cursor: pointer;
+  display: flex;
+  height: 24px;
+  justify-content: center;
+  padding: 0;
+  width: 24px;
+}
+
+.qq2007-right-tool-button:hover,
+.qq2007-right-tool-button:focus-visible {
+  background: rgb(255 255 255 / 72%);
+  border-color: #76aeda;
+  outline: 0;
+}
+
+.qq2007-right-tool-button img {
+  display: block;
+  height: 18px;
+  image-rendering: auto;
+  object-fit: contain;
+  width: 18px;
+}
+
+.qq2007-friends-header {
+  border-top: 1px solid #5f98c5;
+  flex-basis: 34px;
+  height: 34px;
+  margin-top: 0;
+}
+
+.qq2007-friend-stage {
+  align-items: stretch;
+  background: #e7f5ff;
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: center;
+  overflow: hidden;
+  width: 100%;
+}
+
+.qq2007-friend-search {
+  cursor: pointer;
+  flex: 0 0 31px;
+  margin-bottom: 0;
+  margin-top: 0;
+}
+
+#qq2007-statusbar {
+  align-items: center;
+  background-color: #4c9bd4;
+  background-image: var(--qq2007-status-bg);
+  background-position: center;
+  background-size: 100% 100%;
+  border-top: 1px solid #1e6eac;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 72%);
+  box-sizing: border-box;
+  color: #0d3860;
+  display: flex;
+  flex: 0 0 32px;
+  font-size: 11px;
+  height: 32px;
+  justify-content: space-between;
+  min-height: 32px;
+  padding: 0 8px;
+  user-select: none;
+  z-index: 40;
+}
+
+.qq2007-status-left,
+.qq2007-status-right {
+  align-items: center;
+  display: flex;
+  height: 100%;
+}
+
+.qq2007-status-left > img {
+  height: 29px;
+  object-fit: contain;
+  object-position: left center;
+  width: 210px;
+}
+
+.qq2007-status-right {
+  gap: 5px;
+}
+
+.qq2007-status-right img {
+  height: 23px;
+  object-fit: contain;
+  width: 25px;
+}
+
+.qq2007-clock {
+  color: #123c63;
+  font-size: 12px;
+  min-width: 34px;
+}
+
+.qq2007-sr-only {
+  height: 1px !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  position: absolute !important;
+  width: 1px !important;
+  clip: rect(0 0 0 0) !important;
+}
+
+#qq2007-toast {
+  align-items: center;
+  background: #f5fbff;
+  border: 1px solid #438fc3;
+  bottom: 44px;
+  box-shadow: 0 6px 18px rgb(7 60 101 / 26%), inset 0 0 0 1px #fff;
+  color: #0a466f;
+  display: none;
+  gap: 8px;
+  min-height: 46px;
+  opacity: 0;
+  padding: 7px;
+  pointer-events: none;
+  position: fixed;
+  right: 18px;
+  top: auto;
+  transform: none;
+  width: 220px;
+  z-index: 80;
+}
+
+#qq2007-toast[data-visible="true"] {
+  display: flex;
+  opacity: 1;
+}
+
+#qq2007-toast > img {
+  height: 42px;
+  object-fit: cover;
+  object-position: center 25%;
+  width: 42px;
+}
+
+.qq2007-toast-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.qq2007-toast-copy strong {
+  font-size: 12px;
+}
+
+.qq2007-toast-copy span {
+  color: #55778f;
+  font-size: 10px;
+  margin-top: 3px;
+}
+
+html.codex-2007 [data-qq2007-renamed="true"] {
+  color: inherit;
+}
+
+/* Settings keeps its native controls and service rows; this layer only gives
+ * the real surface the same QQ2007 window, pane and form treatment. */
+html.codex-2007[data-qq2007-settings-surface="true"],
+html.codex-2007[data-qq2007-settings-surface="true"] body {
+  background: #b8d9f3 !important;
+}
+
+html.codex-2007 [data-qq2007-settings-host="true"] {
+  background: #c7e1f4 !important;
+  color: #132b48 !important;
+}
+
+html.codex-2007 [data-qq2007-settings-topbar="true"] {
+  background-color: #0b62b5 !important;
+  background-image: var(--qq2007-title-bg) !important;
+  background-position: center !important;
+  background-size: 100% 100% !important;
+  border-bottom: 1px solid #06417e !important;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 48%), inset 0 -1px 0 rgb(0 38 90 / 62%) !important;
+  color: #f9fdff !important;
+  min-height: 42px !important;
+  position: relative !important;
+}
+
+html.codex-2007 [data-qq2007-settings-topbar="true"] button,
+html.codex-2007 [data-qq2007-settings-topbar="true"] a {
+  color: #f9fdff !important;
+  text-shadow: 0 1px 1px #06346c;
+}
+
+#qq2007-settings-title {
+  align-items: center;
+  color: #fff;
+  display: flex;
+  font-size: 16px;
+  font-weight: 700;
+  gap: 5px;
+  left: 50%;
+  pointer-events: none;
+  position: absolute;
+  text-shadow: 0 1px 2px #083c79;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+  z-index: 2;
+}
+
+.qq2007-settings-title-icon {
+  height: 25px;
+  object-fit: contain;
+  width: 25px;
+}
+
+html.codex-2007 [data-qq2007-settings-sidebar="true"] {
+  /* This marker belongs on the real app-shell aside. Its parent is the
+   * horizontal settings workspace, so the fixed flex basis controls width
+   * without accidentally locking the inner category stack to 300px tall. */
+  align-self: stretch !important;
+  background: #eef7fd !important;
+  border-right: 1px solid #4f8ec0 !important;
+  box-shadow: inset -1px 0 #fff;
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 0 0 var(--qq2007-left-width) !important;
+  height: 100% !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  min-width: var(--qq2007-left-width) !important;
+  overflow: hidden !important;
+  width: var(--qq2007-left-width) !important;
+}
+
+/* Height must be propagated through every native wrapper between the aside
+ * and its category scrollport. Without this chain, the inner flex item only
+ * receives its content height and appears as a one-row strip. */
+html.codex-2007 [data-qq2007-settings-column="true"],
+html.codex-2007 [data-qq2007-settings-navigation-host="true"] {
+  box-sizing: border-box !important;
+  display: flex !important;
+  flex: 1 1 0 !important;
+  flex-direction: column !important;
+  height: auto !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  width: 100% !important;
+}
+
+/* The native settings list used to keep its own short scrollport, leaving a
+ * large empty strip below the categories.  It is now the flex-fill portion of
+ * the sidebar: all settings stay reachable, and only vertical scrolling is
+ * allowed when the window is genuinely too short. */
+html.codex-2007 [data-qq2007-settings-navigation="true"] {
+  box-sizing: border-box !important;
+  flex: 1 1 auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  padding-bottom: 14px !important;
+}
+
+html.codex-2007 [data-qq2007-settings-back="true"] {
+  align-items: center !important;
+  background: linear-gradient(#fafdff, #d5ecfd) !important;
+  border: 1px solid #77a9d1 !important;
+  border-radius: 2px !important;
+  box-shadow: inset 0 1px 0 #fff;
+  color: #0a4275 !important;
+  display: inline-flex !important;
+  font-weight: 700 !important;
+  margin: 7px 8px 5px !important;
+  min-height: 30px !important;
+  padding: 3px 9px !important;
+  flex-shrink: 0 !important;
+}
+
+html.codex-2007 [data-qq2007-settings-back="true"]:hover,
+html.codex-2007 [data-qq2007-settings-back="true"]:focus-visible {
+  background: #fffbdc !important;
+  border-color: #ce9d36 !important;
+  outline: 1px dotted #9a6f18 !important;
+  outline-offset: 1px;
+}
+
+html.codex-2007 [data-qq2007-settings-search="true"] {
+  background: #f8fcff !important;
+  border: 1px solid #77a9d1 !important;
+  border-radius: 2px !important;
+  box-shadow: inset 0 1px 2px rgb(11 70 123 / 16%), 0 1px 0 #fff;
+  margin: 3px 8px 8px !important;
+  flex-shrink: 0 !important;
+}
+
+html.codex-2007 [data-qq2007-settings-search="true"] input,
+html.codex-2007 [data-qq2007-settings-search="true"] textarea {
+  color: #193f62 !important;
+}
+
+html.codex-2007 [data-qq2007-settings-row="true"] {
+  align-items: center !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-radius: 2px !important;
+  color: #183b61 !important;
+  font-size: 14px !important;
+  margin: 0 5px !important;
+  min-height: 31px !important;
+  padding-inline: 8px !important;
+}
+
+html.codex-2007 [data-qq2007-settings-row="true"] svg,
+html.codex-2007 [data-qq2007-settings-row="true"] img {
+  color: #1c5d99 !important;
+  filter: saturate(1.15) contrast(1.05);
+}
+
+html.codex-2007 [data-qq2007-settings-row="true"]:hover,
+html.codex-2007 [data-qq2007-settings-row="true"]:focus-visible {
+  background: #d9edfb !important;
+  border-color: #78abd3 !important;
+  box-shadow: inset 0 1px 0 #fff;
+  outline: 0 !important;
+}
+
+html.codex-2007 [data-qq2007-settings-row="true"][aria-current="page"],
+html.codex-2007 [data-qq2007-settings-row="true"][data-state="active"],
+html.codex-2007 [data-qq2007-settings-row="true"].bg-token-list-hover-background {
+  background: #b8dcf5 !important;
+  border-color: #4e9bd1 !important;
+  box-shadow: inset 0 1px 0 #eaf8ff, inset 0 -1px 0 rgb(57 132 188 / 30%);
+  color: #082d5b !important;
+  font-weight: 700 !important;
+}
+
+html.codex-2007 [data-qq2007-settings-main="true"] {
+  background: #f7fcff !important;
+  border: 1px solid #4f8ec0 !important;
+  box-shadow: inset 0 0 0 1px #fff;
+  color: #122c48 !important;
+}
+
+html.codex-2007 [data-qq2007-settings-heading="true"] {
+  color: #0a376b !important;
+  font-family: Tahoma, "Microsoft YaHei UI", "Microsoft YaHei", sans-serif !important;
+  font-weight: 700 !important;
+  text-shadow: 0 1px 0 #fff;
+}
+
+html.codex-2007 [data-qq2007-settings-card="true"] {
+  background: linear-gradient(135deg, #fff, #f0f8fe 70%, #e7f3fc) !important;
+  border: 1px solid #78a8d0 !important;
+  border-radius: 4px !important;
+  box-shadow: inset 0 1px 0 #fff, 0 1px 2px rgb(15 77 126 / 18%) !important;
+}
+
+html.codex-2007 [data-qq2007-settings-main="true"] [role="switch"] {
+  border-color: #3f86bd !important;
+  box-shadow: inset 0 1px 1px rgb(7 61 108 / 25%);
+}
+
+html.codex-2007 [data-qq2007-settings-main="true"] button[aria-haspopup="menu"],
+html.codex-2007 [data-qq2007-settings-main="true"] select {
+  background: linear-gradient(#fff, #e9f5fd) !important;
+  border-color: #76a9d1 !important;
+  border-radius: 2px !important;
+  box-shadow: inset 0 1px 0 #fff;
+  color: #153d64 !important;
+}
+
+html.codex-2007 [data-qq2007-settings-main="true"] :is(input, textarea):not([type="checkbox"]):not([type="radio"]) {
+  background: #fff !important;
+  border-color: #77a9d1 !important;
+  border-radius: 2px !important;
+  box-shadow: inset 0 1px 2px rgb(15 77 126 / 14%);
+  color: #173a5e !important;
+}
+
+html.codex-2007 [data-qq2007-settings-main="true"] ::-webkit-scrollbar {
+  width: 12px;
+}
+
+html.codex-2007 [data-qq2007-settings-main="true"] ::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, #bfdff3, #6fa8d0, #b7def3);
+  border: 1px solid #4f8ec0;
+  border-radius: 2px;
+}
+
+/* Windows XP Luna / QQ2007 scrollbars: a complete control with arrow buttons,
+ * a pale blue recessed shaft and a glossy plastic thumb. Keep this block after
+ * the settings rules so every Codex scroll surface receives the same skin. */
+html.codex-2007,
+html.codex-2007 * {
+  --qq2007-scrollbar-skin: xp-luna;
+  /* A non-auto standards value makes Chromium suppress the richer WebKit
+   * thumb/button rules below and fall back to a flat modern scrollbar. */
+  scrollbar-color: auto !important;
+  scrollbar-width: auto !important;
+}
+
+html.codex-2007 :is(
+  .thread-scroll-container,
+  [data-qq2007-settings-navigation="true"],
+  [data-qq2007-settings-main="true"]
+) {
+  scrollbar-gutter: stable;
+}
+
+html.codex-2007 aside.app-shell-left-panel,
+html.codex-2007 aside.app-shell-left-panel * {
+  scrollbar-gutter: auto !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel::-webkit-scrollbar,
+html.codex-2007 aside.app-shell-left-panel *::-webkit-scrollbar,
+html.codex-2007 aside.app-shell-left-panel *::-webkit-scrollbar-button,
+html.codex-2007 aside.app-shell-left-panel *::-webkit-scrollbar-thumb,
+html.codex-2007 aside.app-shell-left-panel *::-webkit-scrollbar-track,
+html.codex-2007 aside.app-shell-left-panel *::-webkit-scrollbar-track-piece,
+html.codex-2007 aside.app-shell-left-panel *::-webkit-scrollbar-corner {
+  display: none !important;
+  height: 0 !important;
+  width: 0 !important;
+}
+
+html.codex-2007 *::-webkit-scrollbar {
+  height: 17px;
+  width: 17px;
+}
+
+html.codex-2007 *::-webkit-scrollbar-track,
+html.codex-2007 *::-webkit-scrollbar-track-piece {
+  background:
+    repeating-linear-gradient(135deg, rgb(181 213 237 / 18%) 0 1px, transparent 1px 3px),
+    #edf6fc;
+  border-left: 1px solid #c0d9ec;
+  border-right: 1px solid #f8fcff;
+  box-shadow: inset 1px 0 2px rgb(68 125 170 / 14%);
+}
+
+html.codex-2007 *::-webkit-scrollbar-thumb {
+  background:
+    linear-gradient(90deg, rgb(255 255 255 / 78%) 0 2px, transparent 2px calc(100% - 2px), rgb(51 111 163 / 24%) calc(100% - 2px)),
+    linear-gradient(90deg, #d8edfa 0%, #9bc9e8 38%, #6ca8d4 51%, #b8dcf1 100%);
+  border: 1px solid #4c83b5;
+  border-radius: 3px;
+  box-shadow: inset 1px 1px 0 #f7fcff, inset -1px -1px 0 rgb(49 104 151 / 30%);
+  min-height: 30px;
+  min-width: 30px;
+}
+
+html.codex-2007 *::-webkit-scrollbar-thumb:hover {
+  background:
+    linear-gradient(90deg, rgb(255 255 255 / 86%) 0 2px, transparent 2px calc(100% - 2px), rgb(35 94 147 / 28%) calc(100% - 2px)),
+    linear-gradient(90deg, #e8f7ff 0%, #a9daf3 38%, #4f9fd5 51%, #c8e9f8 100%);
+  border-color: #2f72ad;
+}
+
+html.codex-2007 *::-webkit-scrollbar-thumb:active {
+  background: linear-gradient(90deg, #74acd5, #b8dff3 48%, #5b98c8 52%, #98c8e5);
+  border-color: #245f98;
+  box-shadow: inset 1px 1px 2px rgb(27 79 125 / 34%);
+}
+
+html.codex-2007 *::-webkit-scrollbar-button:single-button {
+  background-color: #d9edf9;
+  background-position: center;
+  background-repeat: no-repeat;
+  border: 1px solid #5d91bd;
+  box-shadow: inset 1px 1px 0 #f9fdff, inset -1px -1px 0 rgb(61 114 158 / 28%);
+  display: block;
+  height: 17px;
+  width: 17px;
+}
+
+html.codex-2007 *::-webkit-scrollbar-button:single-button:hover {
+  background-color: #f4fbff;
+  border-color: #3679b2;
+}
+
+html.codex-2007 *::-webkit-scrollbar-button:single-button:active {
+  background-color: #9cc9e6;
+  box-shadow: inset 1px 1px 2px rgb(33 87 133 / 34%);
+}
+
+/* Chromium exposes two logical buttons at each end. XP Luna uses only the
+ * outward-facing pair: up/left at the start and down/right at the end. */
+html.codex-2007 *::-webkit-scrollbar-button:vertical:start:increment,
+html.codex-2007 *::-webkit-scrollbar-button:vertical:end:decrement,
+html.codex-2007 *::-webkit-scrollbar-button:horizontal:start:increment,
+html.codex-2007 *::-webkit-scrollbar-button:horizontal:end:decrement {
+  display: none;
+  height: 0;
+  width: 0;
+}
+
+html.codex-2007 *::-webkit-scrollbar-button:vertical:decrement {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='7' viewBox='0 0 9 7'%3E%3Cpath d='M1 6 4.5 2 8 6' fill='none' stroke='%23366d9d' stroke-width='1.6' stroke-linecap='square'/%3E%3C/svg%3E");
+}
+
+html.codex-2007 *::-webkit-scrollbar-button:vertical:increment {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='7' viewBox='0 0 9 7'%3E%3Cpath d='m1 1 3.5 4L8 1' fill='none' stroke='%23366d9d' stroke-width='1.6' stroke-linecap='square'/%3E%3C/svg%3E");
+}
+
+html.codex-2007 *::-webkit-scrollbar-button:horizontal:decrement {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='7' height='9' viewBox='0 0 7 9'%3E%3Cpath d='M6 1 2 4.5 6 8' fill='none' stroke='%23366d9d' stroke-width='1.6' stroke-linecap='square'/%3E%3C/svg%3E");
+}
+
+html.codex-2007 *::-webkit-scrollbar-button:horizontal:increment {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='7' height='9' viewBox='0 0 7 9'%3E%3Cpath d='m1 1 4 3.5L1 8' fill='none' stroke='%23366d9d' stroke-width='1.6' stroke-linecap='square'/%3E%3C/svg%3E");
+}
+
+html.codex-2007 *::-webkit-scrollbar-corner {
+  background: linear-gradient(135deg, #f7fcff, #c5e1f2);
+  border: 1px solid #7ca7c8;
+}
+
+@media (max-width: 760px) {
+  #qq2007-right-panel {
+    display: none;
+  }
+
+  .qq2007-tool-button {
+    min-width: 88px;
+  }
+}
+
+@media (max-width: 820px) {
+  .qq2007-tool-button:nth-child(n + 5) {
+    display: none;
+  }
+
+  .qq2007-title-identity span {
+    font-size: 15px;
+  }
+}
+
+@keyframes qq2007-idle-bob {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  35% { transform: translate3d(0, -4px, 0); }
+  70% { transform: translate3d(1px, -1px, 0); }
+}
+
+.qq2007-left-user > img,
+.qq2007-friend-stage .qq2007-motion-stage-animated {
+  animation: qq2007-idle-bob 2.8s ease-in-out infinite;
+}
+
+.qq2007-bot-stage .qq2007-motion-stage-animated {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qq2007-motion-stage > .qq2007-motion-stage-animated {
+    display: none;
+  }
+
+  .qq2007-motion-stage > .qq2007-motion-stage-static {
+    display: block;
+  }
+
+  #qq2007-toast {
+    transition: none;
+  }
+}
