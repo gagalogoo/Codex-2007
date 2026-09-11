@@ -45,6 +45,7 @@
     homeAnchor: null,
     homeWelcomeTop: null,
     nativeEnvHost: null,
+    conversationScrollNudged: false,
   };
   window[STATE_KEY] = state;
 
@@ -217,8 +218,8 @@
       text: [/^新建任务$/i, /^新对话$/i, /^new task$/i, /^new chat$/i, /^new conversation$/i],
     }),
     scheduled: () => findButton({
-      aria: [/已安排/i, /定时安排/i, /scheduled/i],
-      text: [/^已安排$/i, /^定时安排$/i, /^scheduled$/i],
+      aria: [/已安排/i, /定时安排/i, /定时任务/i, /scheduled/i],
+      text: [/^已安排$/i, /^定时安排$/i, /^定时任务$/i, /^scheduled$/i],
     }),
     plugins: () => findButton({
       aria: [/插件/i, /plugins?/i],
@@ -679,11 +680,79 @@
     }) || null;
   };
 
+  const isNativeTrayExpanded = (card) => {
+    const motionShell = card.closest(".origin-top-right");
+    if (!motionShell) return true;
+    const transform = getComputedStyle(motionShell).transform;
+    if (!transform || transform === "none") return true;
+    try {
+      const matrix = new DOMMatrixReadOnly(transform);
+      return Math.abs(matrix.m41) <= 2
+        && Math.abs(matrix.m42) <= 2
+        && matrix.a >= 0.98
+        && matrix.d >= 0.98;
+    } catch {
+      return false;
+    }
+  };
+  const nativeOverlayCardSelector = '.bg-token-dropdown-background, [class*="bg-surface-elevated-secondary"], [class*="origin-top-right"]';
+  const nativeOverlayTextPattern = /(?:输出|output|来源|source|环境信息|environment(?:\s+information)?)/i;
+  const findNativeOverlayCard = (host) => {
+    if (!host) return null;
+    return Array.from(host.querySelectorAll(nativeOverlayCardSelector)).find((card) => {
+      const rect = card.getBoundingClientRect();
+      if (rect.width < 200 || rect.height < 80) return false;
+      const style = getComputedStyle(card);
+      if (style.visibility === "hidden" || Number.parseFloat(style.opacity) < 0.2) return false;
+      if (!nativeOverlayTextPattern.test(normalize(card.textContent))) return false;
+      return isNativeTrayExpanded(card);
+    }) || null;
+  };
+  const isNativeOutputOverlayActive = (host) => Boolean(findNativeOverlayCard(host));
+
+  const lockConversationScrollParent = () => {
+    const thread = document.querySelector(".thread-scroll-container");
+    if (!thread) return;
+    const nested = Array.from(thread.querySelectorAll('[class*="overflow-x-clip"], .overflow-x-clip')).find((node) => node !== thread);
+    if (nested && nested.scrollTop) nested.scrollTop = 0;
+    if (!state.conversationScrollNudged) {
+      state.conversationScrollNudged = true;
+      window.requestAnimationFrame(() => {
+        thread.scrollTop = thread.scrollHeight;
+        thread.dispatchEvent(new Event("scroll"));
+      });
+    }
+  };
+
   const syncNativeOutputOverlay = () => {
     const host = findNativeEnvHost();
     if (state.nativeEnvHost && state.nativeEnvHost !== host) clearNativeEnvDock(state.nativeEnvHost);
     state.nativeEnvHost = host || null;
     if (host) clearNativeEnvDock(host);
+    const card = findNativeOverlayCard(host);
+    const active = Boolean(card);
+    if (active) {
+      const main = document.querySelector("main.main-surface");
+      const mainRect = main && main.getBoundingClientRect();
+      const cardRect = card.getBoundingClientRect();
+      const gutter = mainRect
+        ? Math.max(24, Math.round(mainRect.right - cardRect.left + 16))
+        : Math.round(cardRect.width + 16);
+      document.documentElement.dataset.qq2007NativeOverlay = "true";
+      document.documentElement.style.setProperty("--qq2007-thread-overlay-gutter", String(gutter) + "px");
+    } else {
+      delete document.documentElement.dataset.qq2007NativeOverlay;
+      document.documentElement.style.removeProperty("--qq2007-thread-overlay-gutter");
+    }
+    lockConversationScrollParent();
+  };
+
+  const syncComposerAttachments = () => {
+    const composer = findComposer();
+    if (!composer) return;
+    const attach = composer.querySelector('[class*="ComposerLayoutAttachments"]');
+    if (attach && attach.childElementCount > 0) composer.dataset.qq2007ComposerAttachments = "true";
+    else delete composer.dataset.qq2007ComposerAttachments;
   };
 
   const liveSidebarCollapsed = () => {
@@ -709,6 +778,13 @@
     }
     if (aside) aside.dataset.qq2007Collapsed = collapsed ? 'true' : 'false';
     if (row) row.dataset.qq2007SidebarCollapsed = collapsed ? 'true' : 'false';
+  };
+  const lockSidebarSplit = () => {
+    const aside = document.querySelector('aside.app-shell-left-panel');
+    if (!aside || aside.dataset.qq2007Collapsed === 'true') return;
+    if (Date.now() < state.sidebarAnimatingUntil) return;
+    aside.style.removeProperty('width');
+    document.documentElement.style.setProperty('--codex-sidebar-preferred-width', 'var(--qq2007-left-width)');
   };
 
   const findComposer = () => {
@@ -896,9 +972,18 @@
     const botCard = create('div', 'qq2007-bot-card');
     botCard.append(botStage, identity, signature, toolStrip);
 
+    const friendsPane = create('div', 'qq2007-friends-pane');
     const friendsHeader = create('div', 'qq2007-friends-header');
     friendsHeader.appendChild(create('strong', '', '我的好友 (1/1)'));
     friendsHeader.querySelector('strong').dataset.qqFriendCount = 'true';
+    const partnerHeader = create('div', 'qq2007-friends-header');
+    partnerHeader.appendChild(create('strong', '', '智能伙伴 (1/1)'));
+    const partnerRow = create('div', 'qq2007-friend-row');
+    partnerRow.appendChild(makeImage(config.assets.garyAvatarAnimated || config.assets.garyAvatar, 'Gary', 'qq2007-friend-row-avatar'));
+    partnerRow.appendChild(create('span', 'qq2007-friend-row-name', 'Gary'));
+    const offlineHeader = create('div', 'qq2007-friends-header');
+    offlineHeader.appendChild(create('strong', '', '离线好友 (0/0)'));
+    friendsPane.append(friendsHeader, partnerHeader, partnerRow, offlineHeader);
     const friendStage = create('div', 'qq2007-friend-stage');
     friendStage.appendChild(makeMotionStageImage(
       config.assets.friendStageAnimated,
@@ -910,7 +995,7 @@
     friendSearch.appendChild(create('span', '', '查找好友...'));
     friendSearch.appendChild(makeImage(config.assets.searchIcon, ''));
     friendSearch.addEventListener('click', () => invoke(nativeActions.search));
-    panel.append(header, botCard, friendsHeader, friendStage, friendSearch);
+    panel.append(header, botCard, friendsPane, friendStage, friendSearch);
     return panel;
   };
 
@@ -1294,10 +1379,14 @@
         openNativeThreadMenu(row);
       });
     }
-    if (rail) {
-      if (more.parentElement !== rail) rail.appendChild(more);
-    } else if (more.parentElement !== row) {
-      row.appendChild(more);
+    if (rail) {
+
+      if (more.parentElement !== rail) rail.appendChild(more);
+
+    } else if (more.parentElement !== row) {
+
+      row.appendChild(more);
+
     }
   };
 
@@ -1394,7 +1483,7 @@
     const skipNavAria = /(置顶|归档|帮助|个人资料|开始新聊天|侧边栏选项|archive|pin chat|help menu)/i;
     const definitions = [
       [/(新建任务|新对话|new\s*task|new\s*chat|new\s*conversation)/i, 'toolNew', 'new-task'],
-      [/(已安排|定时安排|scheduled)/i, 'toolScheduled', 'scheduled'],
+      [/(已安排|定时安排|定时任务|scheduled)/i, 'toolScheduled', 'scheduled'],
       [/(插件|plugins?)/i, 'toolPlugins', 'plugins'],
       [/(站点|sites?)/i, 'toolSites', 'sites'],
       [/(拉取请求|pull\s*requests?)/i, 'toolPullRequests', 'pull-requests'],
@@ -1408,6 +1497,10 @@
       }
       const text = normalize(button.textContent);
       const aria = normalize(button.getAttribute('aria-label'));
+      if (!text) {
+        if (button.dataset.qq2007Nav) restoreNativeActionButton(button);
+        continue;
+      }
       const definition = definitions.find(([pattern, , key]) => (
         key === 'chat' ? pattern.test(text) : (pattern.test(text) || pattern.test(aria))
       ));
@@ -1445,6 +1538,7 @@
       chat.id = 'qq2007-left-chat-shortcut';
       chat.type = 'button';
       chat.title = '聊天';
+      chat.dataset.qq2007Nav = 'chat';
       chat.appendChild(makeImage(config.assets.toolChat, '', 'qq2007-native-nav-icon'));
       chat.appendChild(create('span', '', '聊天'));
       chat.addEventListener('click', focusComposer);
@@ -1512,6 +1606,7 @@
     if (hasNativeApprovalSurface()) return;
     decorateNativeSidebar();
     syncNativeOutputOverlay();
+    syncComposerAttachments();
     syncSidebarCollapsed();
     syncMainTitleFrame();
     const sessionTitle = readSessionTitle();
@@ -1744,7 +1839,7 @@
     if (mainHeader && !byId('qq2007-main-title')) mainHeader.appendChild(makeMainTitle());
     syncMainTitleFrame();
     let right = byId('qq2007-right-panel');
-    if (!right || !right.querySelector('.qq2007-friend-stage') || !right.querySelector('.qq2007-bot-stage') || right.querySelector('[data-qq2007-right-tab]')) {
+    if (!right || !right.querySelector('.qq2007-friend-stage') || !right.querySelector('.qq2007-bot-stage') || !right.querySelector('.qq2007-friends-pane') || !right.querySelector('.qq2007-friend-row') || right.querySelector('[data-qq2007-right-tab]')) {
       right?.remove();
       right = makeRightPanel();
     }
@@ -1761,6 +1856,7 @@
       layout.workspace.insertAdjacentElement('afterend', statusbar);
     }
     detectComposerControls();
+    syncComposerAttachments();
     const composer = findComposer();
     let composerChrome = byId('qq2007-composer-chrome');
     if (composer && (!composerChrome || !composerChrome.querySelector('.qq2007-send-button'))) {
@@ -1771,6 +1867,7 @@
     decorateHomeSurface();
     decorateMessageContent();
     syncMainTitleFrame();
+    lockSidebarSplit();
     if (!byId('qq2007-toast')) {
       const toast = makeToast();
       toast.dataset.visible = 'false';
@@ -1809,6 +1906,8 @@
       return;
     }
     ensureLayout();
+    lockSidebarSplit();
+    syncComposerAttachments();
     decorateHomeSurface();
     decorateMessageContent();
     for (const node of document.querySelectorAll('main [class*="max-w-3xl"], main [class*="thread-content-max-width"], main [class*="thread-body-max-width"], main [class*="TableContainer"], main [class*="TableScroller"], main [class*="TableWrapper"]')) {
@@ -1890,9 +1989,13 @@
     state.textRenames.clear();
     state.attributeRenames.clear();
     document.documentElement.classList.remove('codex-2007');
-    for (const property of ['--qq2007-title-bg', '--qq2007-toolbar-bg', '--qq2007-panel-header-bg', '--qq2007-status-bg', '--qq2007-send-bg', '--qq2007-folder-bg']) {
+    for (const property of ['--qq2007-title-bg', '--qq2007-toolbar-bg', '--qq2007-panel-header-bg', '--qq2007-status-bg', '--qq2007-send-bg', '--qq2007-folder-bg', '--codex-sidebar-preferred-width']) {
       document.documentElement.style.removeProperty(property);
     }
+    document.documentElement.style.removeProperty('--codex-sidebar-preferred-width');
+    document.documentElement.style.removeProperty('--qq2007-thread-overlay-gutter');
+    delete document.documentElement.dataset.qq2007NativeOverlay;
+    for (const node of document.querySelectorAll('[data-qq2007-composer-attachments]')) delete node.dataset.qq2007ComposerAttachments;
     if (state.onSidebarTriggerPointerDown) {
       document.removeEventListener('pointerdown', state.onSidebarTriggerPointerDown, true);
       state.onSidebarTriggerPointerDown = null;

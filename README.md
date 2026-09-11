@@ -77,6 +77,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\Restore-Codex.
 
 - 报「表达式或语句中包含意外的标记」：请重新下载仓库最新 ZIP（已修复 PowerShell 5.1 中文编码），或直接双击 `windows\Install-Codex-2007.cmd`。
 - 提示找不到 `node`：先安装 Node.js 22+，重新打开 PowerShell 再装。
+- Console repeats `WebSocket is not defined`: the first `node` on PATH is probably Codex Node 20. Reinstall/start the latest theme scripts, or put Node.js 22+ earlier on PATH.
 - 装完还是官方外观：请用 **Codex 2007** 快捷方式启动，不要用官方图标。
 - 安装失败 / 设置页异常：看 [故障排查](docs/TROUBLESHOOTING.md)。
 - 更完整的安装说明：看 [安装文档](docs/INSTALLATION.md)。

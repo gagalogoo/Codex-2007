@@ -51,3 +51,7 @@ classApplied=true
 ## 恢复脚本拒绝操作
 
 恢复脚本在进程、路径或 Junction 目标无法验证时会安全停止。不要手工递归删除未知目录。先保存脱敏错误，再确认主题安装目录和状态文件是否完整。
+
+## Console repeats `WebSocket is not defined`
+
+Codex often prepends its bundled Node 20, which has no global WebSocket. Reinstall/start the latest Codex 2007 scripts: they pick Node 22+ or enable `--experimental-websocket` on Node 20. Do not launch the themed UI from the official Codex icon.

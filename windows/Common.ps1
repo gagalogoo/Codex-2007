@@ -273,6 +273,68 @@ function Ensure-QQProfileAlias {
     return [pscustomobject]@{ Alias = [IO.Path]::GetFullPath($junction.FullName); Target = [IO.Path]::GetFullPath($target) }
 }
 
+function Get-QQNodeVersion {
+    param([Parameter(Mandatory = $true)][string]$NodePath)
+    $output = & $NodePath -p "process.versions.node" 2>$null
+    if ($LASTEXITCODE -ne 0) { return $null }
+    $version = ([string]$output).Trim()
+    if ($version -notmatch "^(\d+)\.") { return $null }
+    return [pscustomobject]@{
+        Path = [IO.Path]::GetFullPath($NodePath)
+        Version = $version
+        Major = [int]$Matches[1]
+    }
+}
+
+function Resolve-QQNode {
+    $seen = New-Object "System.Collections.Generic.HashSet[string]" ([StringComparer]::OrdinalIgnoreCase)
+    $candidates = @()
+    foreach ($command in @(Get-Command node.exe -ErrorAction SilentlyContinue -All)) {
+        $path = [string]$command.Source
+        if (-not $path -or -not (Test-Path -LiteralPath $path -PathType Leaf)) { continue }
+        $full = [IO.Path]::GetFullPath($path)
+        if (-not $seen.Add($full)) { continue }
+        $info = Get-QQNodeVersion -NodePath $full
+        if ($null -ne $info) { $candidates += $info }
+    }
+    if ($candidates.Count -eq 0) {
+        throw "No node.exe was found. Install Node.js 22+ and keep it on PATH."
+    }
+
+    $preferred = $candidates | Where-Object { $_.Major -ge 22 } | Select-Object -First 1
+    if ($null -ne $preferred) {
+        return [pscustomobject]@{ Path = $preferred.Path; Version = $preferred.Version; ExtraArgs = @() }
+    }
+    $modern = $candidates | Where-Object { $_.Major -ge 21 } | Select-Object -First 1
+    if ($null -ne $modern) {
+        return [pscustomobject]@{ Path = $modern.Path; Version = $modern.Version; ExtraArgs = @() }
+    }
+    $legacy = $candidates | Where-Object { $_.Major -eq 20 } | Select-Object -First 1
+    if ($null -ne $legacy) {
+        return [pscustomobject]@{
+            Path = $legacy.Path
+            Version = $legacy.Version
+            ExtraArgs = @("--experimental-websocket")
+        }
+    }
+    $found = ($candidates | ForEach-Object { "{0} ({1})" -f $_.Path, $_.Version }) -join "; "
+    throw ("No usable Node.js found. Codex 2007 needs Node.js 22+, or Node.js 20 with --experimental-websocket. PATH: " + $found)
+}
+
+function Invoke-QQNode {
+    param(
+        [Parameter(Mandatory = $true)]$Node,
+        [Parameter(Mandatory = $true)][string[]]$Arguments
+    )
+    $all = @()
+    if ($null -ne $Node.ExtraArgs -and @($Node.ExtraArgs).Count -gt 0) {
+        $all += @($Node.ExtraArgs)
+    }
+    $all += $Arguments
+    & $Node.Path @all
+    return $LASTEXITCODE
+}
+
 function ConvertTo-QQProcessArgument {
     param([Parameter(Mandatory = $true)][string]$Value)
     if ($Value.Contains('"')) { throw '子进程参数包含不允许的双引号。' }
@@ -286,11 +348,14 @@ function Start-QQWatcher {
         [Parameter(Mandatory = $true)][string]$InjectorPath,
         [Parameter(Mandatory = $true)][int]$Port,
         [Parameter(Mandatory = $true)][string]$ReadyFile,
-        [string]$AssetRoot
+        [string]$AssetRoot,
+        [string[]]$NodeArguments
     )
     $stdout = Join-Path $script:QQRuntimeRoot 'watcher.out.log'
     $stderr = Join-Path $script:QQRuntimeRoot 'watcher.err.log'
-    $arguments = @($InjectorPath, 'watch', '--port', [string]$Port, '--enable', '--ready-file', $ReadyFile)
+    $arguments = @()
+    if ($null -ne $NodeArguments -and @($NodeArguments).Count -gt 0) { $arguments += @($NodeArguments) }
+    $arguments += @($InjectorPath, 'watch', '--port', [string]$Port, '--enable', '--ready-file', $ReadyFile)
     if ($AssetRoot) { $arguments += @('--asset-root', $AssetRoot) }
     $argumentLine = ($arguments | ForEach-Object { ConvertTo-QQProcessArgument -Value $_ }) -join ' '
     return Start-Process -FilePath $NodePath -ArgumentList $argumentLine -WindowStyle Hidden -PassThru `

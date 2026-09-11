@@ -14,6 +14,14 @@ const STATE_ROOT = path.resolve(PACKAGE_ROOT, '..', '..');
 const USER_ASSET_ROOT = path.join(STATE_ROOT, 'assets');
 const PACKAGE_ASSET_ROOT = path.join(PACKAGE_ROOT, 'assets');
 
+function getRuntimeWebSocket() {
+  const ctor = globalThis.WebSocket;
+  if (typeof ctor !== 'function') {
+    throw new Error(`WebSocket is not defined in Node ${process.version}. Codex 2007 requires Node.js 22+, or Node.js 20 launched with --experimental-websocket.`);
+  }
+  return ctor;
+}
+
 function parseArguments(argv) {
   const options = {
     command: 'verify',
@@ -92,7 +100,8 @@ async function discoverTarget(port) {
 class CdpSession {
   constructor(websocketUrl) {
     this.websocketUrl = websocketUrl;
-    this.socket = new WebSocket(websocketUrl);
+    this.socketCtor = getRuntimeWebSocket();
+    this.socket = new this.socketCtor(websocketUrl);
     this.pending = new Map();
     this.nextId = 1;
     this.closed = false;
@@ -142,7 +151,7 @@ class CdpSession {
   }
 
   send(method, params = {}, timeoutMs = 15000) {
-    if (this.closed || this.socket.readyState !== WebSocket.OPEN) {
+    if (this.closed || this.socket.readyState !== this.socketCtor.OPEN) {
       return Promise.reject(new Error(`CDP session is not open for ${method}`));
     }
     return new Promise((resolve, reject) => {
@@ -520,10 +529,12 @@ const verifyExpression = `(() => {
       return false;
     }
   };
-  const nativeOutputOverlayActive = Array.from(document.querySelectorAll('main.main-surface div')).some((node) => {
+  const nativeOutputOverlayHost = Array.from(document.querySelectorAll('main.main-surface div')).find((node) => {
     const rect = node.getBoundingClientRect();
-    const visibleTrayCards = Array.from(node.querySelectorAll('.bg-token-dropdown-background')).filter((card) => (
+    const visibleTrayCards = Array.from(node.querySelectorAll('.bg-token-dropdown-background, [class*="bg-surface-elevated-secondary"], [class*="origin-top-right"]')).filter((card) => (
       card.getBoundingClientRect().width >= 200
+      && card.getBoundingClientRect().height >= 80
+      && Number.parseFloat(getComputedStyle(card).opacity) >= 0.2
       && isViewportVisible(card)
       && isNativeTrayExpanded(card)
     ));
@@ -536,7 +547,8 @@ const verifyExpression = `(() => {
       && rect.width >= 220 && rect.height > 0
       && isViewportVisible(node)
       && isNativeInformationTray;
-  });
+  }) || null;
+  const nativeOutputOverlayActive = Boolean(nativeOutputOverlayHost);
   const nativeNavGlyphsHidden = Array.from(document.querySelectorAll('[data-qq2007-native-nav-glyph="true"]')).every((node) => {
     const rect = node.getBoundingClientRect();
     const style = getComputedStyle(node);
@@ -660,9 +672,15 @@ const verifyExpression = `(() => {
       && ['copy', 'like', 'dislike', 'share'].every((kind) => kinds.has(kind));
   });
   const threadScroller = document.querySelector('.thread-scroll-container');
+  const nestedThreadClip = threadScroller?.querySelector('[class*="overflow-x-clip"], .overflow-x-clip');
+  const nestedClipStyle = nestedThreadClip ? getComputedStyle(nestedThreadClip) : null;
+  const conversationScrollNotNested = !nestedThreadClip || nestedClipStyle.overflowY === 'visible' || nestedThreadClip.scrollHeight <= nestedThreadClip.clientHeight + 2;
+  const conversationJumpReady = !threadScroller || (
+    getComputedStyle(threadScroller).getPropertyValue('--qq2007-scrollbar-skin').trim() === 'native-jump'
+    && getComputedStyle(threadScroller).scrollbarWidth === 'thin'
+  );
   const classicScrollbarTargets = Array.from(new Set([
-    threadScroller,
-    ...Array.from(document.querySelectorAll('aside.app-shell-left-panel *, [data-qq2007-settings-navigation="true"], [data-qq2007-settings-main="true"]')).filter((element) => {
+    ...Array.from(document.querySelectorAll('[data-qq2007-settings-navigation="true"], [data-qq2007-settings-main="true"], #qq2007-right-panel')).filter((element) => {
       const style = getComputedStyle(element);
       return element.scrollHeight > element.clientHeight + 1 && /auto|scroll/.test(style.overflowY);
     }),
@@ -676,7 +694,7 @@ const verifyExpression = `(() => {
     '::-webkit-scrollbar-button:horizontal:decrement',
     '::-webkit-scrollbar-button:horizontal:increment',
   ].every((contract) => injectedSkinCss.includes(contract));
-  const retroScrollbarTargetsReady = classicScrollbarTargets.length > 0 && classicScrollbarTargets.every((element) => (
+  const retroScrollbarTargetsReady = classicScrollbarTargets.every((element) => (
     getComputedStyle(element).getPropertyValue('--qq2007-scrollbar-skin').trim() === 'xp-luna'
     && getComputedStyle(element).scrollbarColor === 'auto'
     && getComputedStyle(element).scrollbarWidth === 'auto'
@@ -697,6 +715,95 @@ const verifyExpression = `(() => {
     return rectangle.left >= conversationRect.left - 2
       && rectangle.right <= conversationRect.right + 2
       && rectangle.width <= conversationRect.width + 4;
+  });
+  const leftAside = document.querySelector('aside.app-shell-left-panel');
+  const leftAsideCollapsed = leftAside?.dataset.qq2007Collapsed === 'true';
+  const leftAsideStyle = leftAside ? getComputedStyle(leftAside) : null;
+  const splitterNodes = Array.from(document.querySelectorAll(
+    'aside.app-shell-left-panel [class*="panel-resizer"], aside.app-shell-left-panel [role="separator"], main.main-surface [role="separator"], main.main-surface [class*="cursor-row-resize"], main.main-surface [class*="cursor-col-resize"]'
+  ));
+  const splittersLocked = splitterNodes.every((node) => {
+    const style = getComputedStyle(node);
+    return style.display === 'none' || style.pointerEvents === 'none';
+  });
+  const sidebarSplitLocked = settingsSurface || Boolean(
+    leftAsideStyle
+    && (leftAsideCollapsed || leftAsideStyle.maxWidth === leftAsideStyle.width)
+    && splittersLocked
+  );
+  const preferredSidebarWidthSynced = settingsSurface || leftAsideCollapsed || (
+    document.documentElement.style.getPropertyValue('--codex-sidebar-preferred-width').trim() === 'var(--qq2007-left-width)'
+  );
+  const rightPanelEl = document.getElementById('qq2007-right-panel');
+  const friendSearchEl = rightPanelEl?.querySelector('.qq2007-friend-search');
+  const friendStageEl = rightPanelEl?.querySelector('.qq2007-friend-stage');
+  const skipRightPin = settingsSurface || !wideEnoughForRightPanel || nativeOutputOverlayActive || !rightPanelEl;
+  const friendSearchPinnedToBottom = skipRightPin || Boolean(
+    friendSearchEl
+    && rightPanelEl.lastElementChild === friendSearchEl
+    && Math.abs(friendSearchEl.getBoundingClientRect().bottom - rightPanelEl.getBoundingClientRect().bottom) <= 4
+  );
+  const friendStageAboveSearch = skipRightPin || Boolean(
+    friendStageEl
+    && friendSearchEl
+    && friendStageEl.nextElementSibling === friendSearchEl
+    && Math.abs(friendStageEl.getBoundingClientRect().bottom - friendSearchEl.getBoundingClientRect().top) <= 4
+  );
+  const partnerRowEl = rightPanelEl?.querySelector('.qq2007-friend-row');
+  const identityEl = rightPanelEl?.querySelector('.qq2007-bot-identity');
+  const botStageEl = rightPanelEl?.querySelector('.qq2007-bot-stage');
+  const partnerFriendRowReady = skipRightPin || Boolean(
+    partnerRowEl
+    && /Gary/i.test(partnerRowEl.textContent || '')
+    && rightPanelEl.querySelector('.qq2007-friends-pane')?.contains(partnerRowEl)
+  );
+  const stageFramesReady = skipRightPin || Boolean(
+    botStageEl
+    && friendStageEl
+    && identityEl
+    && Number.parseFloat(getComputedStyle(botStageEl).borderTopWidth) > 0
+    && Number.parseFloat(getComputedStyle(friendStageEl).borderTopWidth) > 0
+    && identityEl.getBoundingClientRect().top - botStageEl.getBoundingClientRect().bottom >= 3
+  );
+  const toolsBarEl = document.querySelector('.qq2007-composer-tools');
+  const composerEl = document.querySelector('.composer-surface-chrome') || document.querySelector('[class*="ComposerLayoutRoot"]');
+  const attachEl = composerEl?.querySelector('[class*="ComposerLayoutAttachments"]');
+  const attachCloseEl = attachEl?.querySelector('button');
+  const composerAttachmentsClickable = !attachEl || attachEl.childElementCount === 0 || Boolean(
+    toolsBarEl
+    && attachCloseEl
+    && attachCloseEl.getBoundingClientRect().top >= toolsBarEl.getBoundingClientRect().bottom - 1
+    && attachCloseEl.getBoundingClientRect().width >= 12
+    && attachCloseEl.getBoundingClientRect().height >= 12
+  );
+  const overlayCard = nativeOutputOverlayHost
+    ? Array.from(nativeOutputOverlayHost.querySelectorAll('.bg-token-dropdown-background, [class*="bg-surface-elevated-secondary"], [class*="origin-top-right"]')).find((card) => (
+      card.getBoundingClientRect().width >= 200
+      && card.getBoundingClientRect().height >= 80
+      && Number.parseFloat(getComputedStyle(card).opacity) >= 0.2
+      && isNativeTrayExpanded(card)
+    ))
+    : null;
+  const overlayRect = (overlayCard || nativeOutputOverlayHost)?.getBoundingClientRect();
+  const threadClearsNativeOverlay = !nativeOutputOverlayActive || !overlayRect || visibleTurns.length === 0 || visibleTurns.every((turn) => (
+    turn.getBoundingClientRect().right <= overlayRect.left + 2
+  ));
+  const navIconLefts = Array.from(document.querySelectorAll('aside.app-shell-left-panel [data-qq2007-nav] > .qq2007-native-nav-icon, #qq2007-left-chat-shortcut > .qq2007-native-nav-icon'))
+    .map((icon) => icon.getBoundingClientRect())
+    .filter((rect) => rect.width >= 12 && rect.height >= 12 && rect.left < 80)
+    .map((rect) => Math.round(rect.left));
+  const sidebarNavIconsAligned = navIconLefts.length < 2 || navIconLefts.every((left) => Math.abs(left - navIconLefts[0]) <= 1);
+  const sampleThreadRows = Array.from(document.querySelectorAll('[data-qq2007-thread-row="true"]'));
+  const threadRowIconTextTight = sampleThreadRows.length === 0 || sampleThreadRows.every((row) => {
+    const style = getComputedStyle(row);
+    const title = row.querySelector('[data-thread-title="true"]');
+    const leading = Array.from(row.querySelectorAll('.w-4.shrink-0.items-center.justify-center')).find((node) => node.closest('[data-qq2007-thread-row="true"]') === row);
+    const leadingCollapsed = !leading || getComputedStyle(leading).display === 'none' || leading.getBoundingClientRect().width <= 1;
+    if (!(style.paddingLeft === '36px' && (style.backgroundPositionX === '16px' || style.backgroundPosition.startsWith('16px')) && leadingCollapsed)) return false;
+    if (!title) return true;
+    const rowRect = row.getBoundingClientRect();
+    const titleRect = title.getBoundingClientRect();
+    return titleRect.left - (rowRect.left + 32) <= 8;
   });
   const pass = Boolean(
     state
@@ -739,6 +846,18 @@ const verifyExpression = `(() => {
     && mainTitleAlignedWithConversationFrame
     && mainTitleRounded
     && (homeSurfaceDetected || mainTitleBottomAlignedWithConversation)
+    && sidebarSplitLocked
+    && preferredSidebarWidthSynced
+    && friendSearchPinnedToBottom
+    && friendStageAboveSearch
+    && partnerFriendRowReady
+    && stageFramesReady
+    && composerAttachmentsClickable
+    && threadClearsNativeOverlay
+    && sidebarNavIconsAligned
+    && threadRowIconTextTight
+    && conversationScrollNotNested
+    && conversationJumpReady
     ))
   );
   return {
@@ -794,6 +913,8 @@ const verifyExpression = `(() => {
       retroScrollbarCssReady,
       retroScrollbarTargetsReady,
       retroScrollbarTargetCount: classicScrollbarTargets.length,
+      conversationJumpReady,
+      conversationScrollNotNested,
       contextIndicatorRight: nativeContextRect ? Math.round(nativeContextRect.right) : null,
       contextIndicatorBottom: nativeContextRect ? Math.round(nativeContextRect.bottom) : null,
       modelButtonLeft: nativeModelRect ? Math.round(nativeModelRect.left) : null,
@@ -862,6 +983,16 @@ const verifyExpression = `(() => {
       conversationFrameRight: mainSurfaceRect ? Math.round(mainSurfaceRect.right) : null,
       mainTitleIconLeft: mainTitleIconRect ? Math.round(mainTitleIconRect.left) : null,
       mainSurfaceLeft: mainSurfaceRect ? Math.round(mainSurfaceRect.left) : null,
+      sidebarSplitLocked,
+      preferredSidebarWidthSynced,
+      friendSearchPinnedToBottom,
+      friendStageAboveSearch,
+      partnerFriendRowReady,
+      stageFramesReady,
+      composerAttachmentsClickable,
+      threadClearsNativeOverlay,
+      sidebarNavIconsAligned,
+      threadRowIconTextTight,
     },
     nodes,
     nativeAppIntact,

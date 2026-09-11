@@ -236,12 +236,14 @@ function Test-NativeFloatingTrayScope {
     $runtime = Get-Content -LiteralPath (Join-Path $root 'src/skin-runtime.js') -Raw -Encoding UTF8
     $injector = Get-Content -LiteralPath (Join-Path $root 'src/injector.mjs') -Raw -Encoding UTF8
     foreach ($contract in @(
-        "node.querySelectorAll('.bg-token-dropdown-background')",
+        'bg-surface-elevated-secondary',
+        'findNativeOverlayCard',
         'isViewportVisible',
         'isNativeTrayExpanded',
         "card.closest('.origin-top-right')",
         'new DOMMatrixReadOnly(transform)',
-        'isNativeInformationTray'
+        'isNativeInformationTray',
+        'mainRect.right - cardRect.left'
     )) {
         if (-not $runtime.Contains($contract) -and -not $injector.Contains($contract)) {
             Add-Failure "Missing native floating-tray scope contract: $contract"
@@ -499,7 +501,9 @@ function Test-RetroScrollbarContract {
         'retroScrollbarReady',
         'retroScrollbarCssReady',
         'retroScrollbarTargetsReady',
-        'retroScrollbarTargetCount'
+        'retroScrollbarTargetCount',
+        '--qq2007-scrollbar-skin: native-jump',
+        'conversationJumpReady'
     )) {
         if (-not $css.Contains($contract) -and -not $injector.Contains($contract)) {
             Add-Failure "Missing retro scrollbar contract: $contract"
@@ -519,6 +523,209 @@ function Test-NativeNewTaskBackdropContract {
     )) {
         if (-not $runtime.Contains($contract) -and -not $injector.Contains($contract) -and -not $css.Contains($contract)) {
             Add-Failure "Missing native New task backdrop contract: $contract"
+        }
+    }
+}
+
+function Test-ResolvedNodeProvidesWebSocket {
+    $start = Get-Content -LiteralPath (Join-Path $root 'windows/Start-Codex-2007.ps1') -Raw -Encoding UTF8
+    $restore = Get-Content -LiteralPath (Join-Path $root 'windows/Restore-Codex.ps1') -Raw -Encoding UTF8
+    $common = Get-Content -LiteralPath (Join-Path $root 'windows/Common.ps1') -Raw -Encoding UTF8
+    $injector = Get-Content -LiteralPath (Join-Path $root 'src/injector.mjs') -Raw -Encoding UTF8
+
+    if ($common -notmatch 'function Resolve-QQNode\b') {
+        Add-Failure 'windows/Common.ps1 must define Resolve-QQNode so Codex-prepended Node 20 is not used blindly.'
+    }
+    if ($start -notmatch 'Resolve-QQNode') {
+        Add-Failure 'windows/Start-Codex-2007.ps1 must resolve Node via Resolve-QQNode.'
+    }
+    if ($restore -notmatch 'Resolve-QQNode') {
+        Add-Failure 'windows/Restore-Codex.ps1 must resolve Node via Resolve-QQNode.'
+    }
+    if ($start -match '\(Get-Command node\.exe -ErrorAction Stop\)\.Source' -or $restore -match '\(Get-Command node\.exe -ErrorAction Stop\)\.Source') {
+        Add-Failure 'Start/Restore must not take the first PATH node.exe; Codex prepends Node 20 without WebSocket.'
+    }
+    if ($injector -notmatch 'globalThis\.WebSocket') {
+        Add-Failure 'src/injector.mjs must read WebSocket from globalThis so Node 20 fails with a clear error instead of ReferenceError.'
+    }
+    if ($common -notmatch 'function Resolve-QQNode\b') { return }
+
+    $commonPath = Join-Path $root 'windows/Common.ps1'
+    $probe = Join-Path $env:TEMP ('codex2007-websocket-probe-{0}.ps1' -f [guid]::NewGuid().ToString('N'))
+    $escapedCommon = $commonPath.Replace("'", "''")
+    $probeLines = @(
+        'Set-StrictMode -Version 2.0',
+        '$ErrorActionPreference = ''Stop''',
+        ". '$escapedCommon'",
+        '$node = Resolve-QQNode',
+        '$nodeArgs = @()',
+        'if ($null -ne $node.ExtraArgs) { $nodeArgs += @($node.ExtraArgs) }',
+        '$nodeArgs += ''-p''',
+        '$nodeArgs += ''typeof WebSocket''',
+        '$kind = (& $node.Path @nodeArgs | Out-String).Trim()',
+        'if ($kind -ne ''function'') { throw "Resolved Node lacks WebSocket: $($node.Path) $($node.Version) => $kind" }'
+    )
+    [IO.File]::WriteAllText($probe, (($probeLines -join [Environment]::NewLine) + [Environment]::NewLine), [Text.UTF8Encoding]::new($false))
+    try {
+        $powershell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+        & $powershell -NoProfile -ExecutionPolicy Bypass -File $probe
+        if ($LASTEXITCODE -ne 0) {
+            Add-Failure 'Resolve-QQNode selected a Node.js binary that still does not provide WebSocket.'
+        }
+    }
+    finally {
+        Remove-Item -LiteralPath $probe -Force -ErrorAction SilentlyContinue
+    }
+}
+
+
+function Test-LockedSidebarSplitContract {
+    $css = Get-Content -LiteralPath (Join-Path $root 'src/skin.css') -Raw -Encoding UTF8
+    $runtime = Get-Content -LiteralPath (Join-Path $root 'src/skin-runtime.js') -Raw -Encoding UTF8
+    $injector = Get-Content -LiteralPath (Join-Path $root 'src/injector.mjs') -Raw -Encoding UTF8
+
+    foreach ($contract in @(
+        '--qq2007-left-width: 280px;',
+        '--qq2007-right-width: 232px;',
+        'max-width: var(--qq2007-left-width) !important;',
+        'aside.app-shell-left-panel [class*="panel-resizer"]',
+        'aside.app-shell-left-panel [role="separator"]',
+        'main.main-surface [role="separator"]',
+        'main.main-surface [class*="cursor-row-resize"]',
+        'main.main-surface [class*="cursor-col-resize"]',
+        'pointer-events: none !important;',
+        'display: none !important;'
+    )) {
+        if (-not $css.Contains($contract)) {
+            Add-Failure "Missing locked-sidebar CSS contract: $contract"
+        }
+    }
+    if ($css.Contains('19vw') -or $css.Contains('16vw')) {
+        Add-Failure 'Sidebar widths must be fixed CSS pixels, not viewport units.'
+    }
+    foreach ($contract in @(
+        'const lockSidebarSplit =',
+        "'var(--qq2007-left-width)'",
+        "removeProperty('--codex-sidebar-preferred-width')",
+        'lockSidebarSplit()'
+    )) {
+        if (-not $runtime.Contains($contract)) {
+            Add-Failure "Missing locked-sidebar runtime contract: $contract"
+        }
+    }
+    foreach ($contract in @('sidebarSplitLocked', 'preferredSidebarWidthSynced')) {
+        if (-not $injector.Contains($contract)) {
+            Add-Failure "Missing locked-sidebar verification contract: $contract"
+        }
+    }
+}
+
+function Test-RightPanelPinnedStagesContract {
+    $css = Get-Content -LiteralPath (Join-Path $root 'src/skin.css') -Raw -Encoding UTF8
+    $runtime = Get-Content -LiteralPath (Join-Path $root 'src/skin-runtime.js') -Raw -Encoding UTF8
+    $injector = Get-Content -LiteralPath (Join-Path $root 'src/injector.mjs') -Raw -Encoding UTF8
+
+    foreach ($contract in @(
+        '.qq2007-friends-pane',
+        'flex: 1 1 auto',
+        'object-fit: contain'
+    )) {
+        if (-not $css.Contains($contract)) {
+            Add-Failure "Missing pinned-stage CSS contract: $contract"
+        }
+    }
+    if ($css -notmatch '(?s)#qq2007-right-panel\s*\{[^}]*height:\s*100%') {
+        Add-Failure 'Right panel must fill the row height with height: 100%.'
+    }
+    if ($css -match '(?s)\.qq2007-bot-stage\s*>\s*\.qq2007-motion-stage\s*>\s*img\s*\{[^}]*object-fit:\s*cover') {
+        Add-Failure 'Codex Xiaolan stage must use object-fit: contain, not cover.'
+    }
+    foreach ($contract in @(
+        "create('div', 'qq2007-friends-pane')",
+        '智能伙伴 (1/1)',
+        '离线好友 (0/0)',
+        "create('div', 'qq2007-friend-row')",
+        'qq2007-friend-row-avatar',
+        'friendsPane.append',
+        'panel.append(header, botCard, friendsPane, friendStage, friendSearch)'
+    )) {
+        if (-not $runtime.Contains($contract)) {
+            Add-Failure "Missing pinned-stage runtime contract: $contract"
+        }
+    }
+    foreach ($contract in @('friendSearchPinnedToBottom', 'friendStageAboveSearch', 'partnerFriendRowReady', 'stageFramesReady')) {
+        if (-not $injector.Contains($contract)) {
+            Add-Failure "Missing pinned-stage verification contract: $contract"
+        }
+    }
+    if ($css -notmatch '(?s)\.qq2007-friend-stage\s*\{[^}]*border:\s*1px solid') {
+        Add-Failure 'Friend stage must use a 1px solid border on all sides.'
+    }
+    if ($css -notmatch '(?s)\.qq2007-bot-identity\s*\{[^}]*min-height:\s*26px') {
+        Add-Failure 'Bot identity must not use a fixed 22px height.'
+    }
+}
+
+function Test-ComposerAttachmentsContract {
+    $css = Get-Content -LiteralPath (Join-Path $root 'src/skin.css') -Raw -Encoding UTF8
+    $runtime = Get-Content -LiteralPath (Join-Path $root 'src/skin-runtime.js') -Raw -Encoding UTF8
+    $injector = Get-Content -LiteralPath (Join-Path $root 'src/injector.mjs') -Raw -Encoding UTF8
+    foreach ($contract in @(
+        'ComposerLayoutAttachments',
+        'data-qq2007-composer-attachments',
+        'const syncComposerAttachments =',
+        'composerAttachmentsClickable'
+    )) {
+        if (-not $runtime.Contains($contract) -and -not $css.Contains($contract) -and -not $injector.Contains($contract)) {
+            Add-Failure "Missing composer-attachment contract: $contract"
+        }
+    }
+    if ($css -notmatch 'margin-top:\s*36px !important') {
+        Add-Failure 'Attachment strip must clear the 34px composer toolbar.'
+    }
+}
+
+function Test-ThreadOverlayGutterContract {
+    $css = Get-Content -LiteralPath (Join-Path $root 'src/skin.css') -Raw -Encoding UTF8
+    $runtime = Get-Content -LiteralPath (Join-Path $root 'src/skin-runtime.js') -Raw -Encoding UTF8
+    $injector = Get-Content -LiteralPath (Join-Path $root 'src/injector.mjs') -Raw -Encoding UTF8
+    if ($css -match '(?s)html\.codex-2007\s*\{[^}]*zoom\s*:') {
+        Add-Failure 'Do not zoom the whole page to compensate for display scaling.'
+    }
+    if ($css -match '(?s)main \[class\*="overflow-x-clip"\][^}]*overflow-x:\s*visible') {
+        Add-Failure 'Message column must not force overflow-x: visible.'
+    }
+    if ($css -match '(?s)main \[class\*="overflow-x-clip"\][^}]*overflow-x:\s*hidden') {
+        Add-Failure 'Message column overflow-x:hidden creates a nested Y scroller.'
+    }
+    foreach ($contract in @(
+        '--qq2007-thread-overlay-gutter',
+        'data-qq2007-native-overlay',
+        'threadClearsNativeOverlay',
+        'lockConversationScrollParent',
+        'conversationScrollNotNested',
+        '[data-thread-find-target="conversation"] > .relative.shrink-0'
+    )) {
+        if (-not $css.Contains($contract) -and -not $runtime.Contains($contract) -and -not $injector.Contains($contract)) {
+            Add-Failure "Missing thread overlay-gutter contract: $contract"
+        }
+    }
+}
+
+function Test-SidebarNavAlignmentContract {
+    $css = Get-Content -LiteralPath (Join-Path $root 'src/skin.css') -Raw -Encoding UTF8
+    $runtime = Get-Content -LiteralPath (Join-Path $root 'src/skin-runtime.js') -Raw -Encoding UTF8
+    $injector = Get-Content -LiteralPath (Join-Path $root 'src/injector.mjs') -Raw -Encoding UTF8
+    foreach ($contract in @(
+        'padding-left: 36px !important;',
+        'background-position: 16px center !important;',
+        '.w-4.shrink-0.items-center.justify-center',
+        'sidebarNavIconsAligned',
+        'threadRowIconTextTight',
+        '定时任务'
+    )) {
+        if (-not $css.Contains($contract) -and -not $runtime.Contains($contract) -and -not $injector.Contains($contract)) {
+            Add-Failure "Missing sidebar alignment contract: $contract"
         }
     }
 }
@@ -545,6 +752,12 @@ Test-NativeWindowControlsContract
 Test-RetroComposerControlsContract
 Test-RetroScrollbarContract
 Test-NativeNewTaskBackdropContract
+Test-ResolvedNodeProvidesWebSocket
+Test-LockedSidebarSplitContract
+Test-RightPanelPinnedStagesContract
+Test-ComposerAttachmentsContract
+Test-ThreadOverlayGutterContract
+Test-SidebarNavAlignmentContract
 
 if ($failures.Count -gt 0) {
     $failures | ForEach-Object { Write-Error $_ }

@@ -1,8 +1,8 @@
 /* Codex 2007 visual layer — independently implemented over the native Codex DOM. */
 
 html.codex-2007 {
-  --qq2007-left-width: clamp(232px, 19vw, 280px);
-  --qq2007-right-width: clamp(216px, 16vw, 232px);
+  --qq2007-left-width: 280px;
+  --qq2007-right-width: 232px;
   --thread-content-max-width: 100% !important;
   --thread-body-max-width: 100% !important;
   color-scheme: light !important;
@@ -211,6 +211,7 @@ html.codex-2007 [data-qq2007-row-host="true"] {
   gap: 6px !important;
   min-height: 0 !important;
   overflow: hidden !important;
+  transform: none !important;
   width: 100% !important;
 }
 
@@ -218,10 +219,10 @@ html.codex-2007 [data-qq2007-row-host="true"] > [class*="MainContentClip"] {
   flex: 1 1 auto !important;
   min-height: 0 !important;
   min-width: 0 !important;
+  transform: none !important;
 }
 
 html.codex-2007 [data-qq2007-row-host="true"] > aside.app-shell-left-panel,
-html.codex-2007 [data-qq2007-row-host="true"] > #qq2007-right-panel,
 html.codex-2007 [data-qq2007-row-host="true"] > [class*="MainContentClip"] {
   align-self: stretch !important;
   height: auto !important;
@@ -235,11 +236,24 @@ html.codex-2007 aside.app-shell-left-panel {
   box-shadow: inset 0 0 0 1px #fff;
   box-sizing: border-box;
   flex: 0 0 var(--qq2007-left-width) !important;
+  max-width: var(--qq2007-left-width) !important;
   min-width: var(--qq2007-left-width) !important;
   overflow: hidden !important;
   position: relative !important;
+  transform: none !important;
   transition: flex-basis 180ms ease, width 180ms ease, min-width 180ms ease, max-width 180ms ease, opacity 160ms ease, border-width 160ms ease !important;
   width: var(--qq2007-left-width) !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel .group\/panel-resizer,
+html.codex-2007 aside.app-shell-left-panel [class*="panel-resizer"],
+html.codex-2007 aside.app-shell-left-panel [role="separator"],
+html.codex-2007 main.main-surface [role="separator"],
+html.codex-2007 main.main-surface [class*="cursor-row-resize"],
+html.codex-2007 main.main-surface [class*="cursor-col-resize"] {
+  cursor: default !important;
+  display: none !important;
+  pointer-events: none !important;
 }
 
 html.codex-2007 aside.app-shell-left-panel > div.max-w-full {
@@ -578,9 +592,15 @@ html.codex-2007 aside.app-shell-left-panel [data-active="true"] {
   box-shadow: inset 0 0 0 1px #6aa6d4 !important;
 }
 
-html.codex-2007 aside.app-shell-left-panel [data-qq2007-nav] {
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-nav],
+html.codex-2007 aside.app-shell-left-panel #qq2007-left-chat-shortcut.qq2007-injected-nav {
   align-items: center !important;
+  box-sizing: border-box !important;
   display: flex !important;
+  gap: 6px !important;
+  height: 30px !important;
+  min-height: 30px !important;
+  padding: 5px 8px !important;
 }
 
 html.codex-2007 aside.app-shell-left-panel [data-qq2007-nav] svg,
@@ -634,7 +654,7 @@ html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-nav-paint-host="n
   display: block !important;
   flex: 0 0 16px;
   height: 16px !important;
-  margin: 0 6px 0 0;
+  margin: 0 !important;
   object-fit: contain;
   object-position: center;
   width: 16px !important;
@@ -661,10 +681,24 @@ html.codex-2007 aside.app-shell-left-panel [data-qq2007-folder-row="true"] [data
 html.codex-2007 aside.app-shell-left-panel [data-qq2007-thread-row="true"] {
   align-items: center;
   background-image: var(--qq2007-thread-bg) !important;
-  background-position: 26px center !important;
+  background-position: 16px center !important;
   background-repeat: no-repeat !important;
   background-size: 16px 16px !important;
-  padding-left: 48px !important;
+  padding-left: 36px !important;
+}
+
+/* Nested project threads keep an empty 16px leading slot for a hidden native
+ * glyph. Collapse that slot so the QQ bubble sits tight against the title. */
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-thread-row="true"] .w-4.shrink-0.items-center.justify-center {
+  display: none !important;
+  flex: 0 0 0px !important;
+  height: 0 !important;
+  margin: 0 !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  pointer-events: none !important;
+  width: 0 !important;
 }
 
 html.codex-2007 aside.app-shell-left-panel[data-qq2007-collapsed="true"] {
@@ -702,9 +736,10 @@ html.codex-2007 [data-qq2007-row-host="true"][data-qq2007-sidebar-collapsed="tru
   cursor: pointer;
   display: flex;
   font-size: 13px;
-  gap: 4px;
-  height: 36px;
-  padding: 0 12px;
+  gap: 6px;
+  height: 30px;
+  min-height: 30px;
+  padding: 5px 8px;
   text-align: left;
   width: 100%;
 }
@@ -978,6 +1013,7 @@ html.codex-2007 main.main-surface {
   box-shadow: inset 0 0 0 1px #fff;
   min-width: 0 !important;
   overflow: hidden;
+  transform: none !important;
 }
 
 html.codex-2007 .thread-scroll-container,
@@ -992,7 +1028,14 @@ html.codex-2007 main {
 html.codex-2007 [data-qq2007-wide-thread="true"],
 html.codex-2007 main [class*="max-w-3xl"],
 html.codex-2007 main [class*="thread-content-max-width"],
-html.codex-2007 main [class*="thread-body-max-width"],
+html.codex-2007 main [class*="thread-body-max-width"] {
+  box-sizing: border-box !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  width: 100% !important;
+}
 html.codex-2007 main [class*="TableContainer"],
 html.codex-2007 main [class*="TableScroller"],
 html.codex-2007 main [class*="TableWrapper"],
@@ -1000,25 +1043,57 @@ html.codex-2007 main table {
   box-sizing: border-box !important;
   margin-left: 0 !important;
   margin-right: 0 !important;
-  max-width: none !important;
+  max-width: 100% !important;
   min-width: 0 !important;
   width: 100% !important;
 }
-html.codex-2007 main [class*="overflow-x-auto"],
-html.codex-2007 main .overflow-x-auto,
 html.codex-2007 main [class*="overflow-x-clip"],
 html.codex-2007 main .overflow-x-clip {
   max-width: 100% !important;
   min-width: 0 !important;
-  overflow-x: visible !important;
+}
+
+/* Native conversation virtualizer keeps a stale totalSize/margin after the
+ * nested overflow parent is removed. Collapse that spacer so the thread
+ * scroller only contains real turns, restoring Codex jump scrolling. */
+html.codex-2007 main.main-surface [data-thread-find-target="conversation"] > .relative.shrink-0 {
+  height: auto !important;
+}
+html.codex-2007 main.main-surface [data-thread-find-target="conversation"] > .relative.shrink-0 > .flex.flex-col {
+  margin-top: 0 !important;
+}
+html.codex-2007 main [class*="overflow-x-auto"],
+html.codex-2007 main .overflow-x-auto {
+  max-width: 100% !important;
+  min-width: 0 !important;
+  overflow-x: auto !important;
 }
 html.codex-2007 main article,
 html.codex-2007 main [data-message-author-role],
 html.codex-2007 main [class*="_markdownContent_"] {
   box-sizing: border-box !important;
-  max-width: none !important;
+  max-width: 100% !important;
   min-width: 0 !important;
+  overflow-wrap: anywhere;
   width: 100% !important;
+}
+html.codex-2007[data-qq2007-native-overlay="true"] #qq2007-right-panel {
+  display: none !important;
+}
+html.codex-2007[data-qq2007-native-overlay="true"] .thread-scroll-container,
+html.codex-2007[data-qq2007-native-overlay="true"] .app-shell-main-content-viewport,
+html.codex-2007[data-qq2007-native-overlay="true"] main.main-surface .thread-scroll-container,
+html.codex-2007[data-qq2007-native-overlay="true"] main [class*="max-w-3xl"],
+html.codex-2007[data-qq2007-native-overlay="true"] main [class*="thread-content-max-width"],
+html.codex-2007[data-qq2007-native-overlay="true"] main [class*="thread-body-max-width"],
+html.codex-2007[data-qq2007-native-overlay="true"] main [class*="overflow-x-clip"],
+html.codex-2007[data-qq2007-native-overlay="true"] main .overflow-x-clip,
+html.codex-2007[data-qq2007-native-overlay="true"] main [data-thread-find-target="conversation"],
+html.codex-2007[data-qq2007-native-overlay="true"] main article,
+html.codex-2007[data-qq2007-native-overlay="true"] main [data-message-author-role] {
+  box-sizing: border-box !important;
+  max-width: 100% !important;
+  padding-right: var(--qq2007-thread-overlay-gutter, 0px) !important;
 }
 html.codex-2007 main table {
   border-collapse: collapse !important;
@@ -1592,6 +1667,24 @@ html.codex-2007 .composer-surface-chrome [contenteditable="true"] {
   z-index: 20;
 }
 
+html.codex-2007 .composer-surface-chrome[data-qq2007-composer-attachments="true"] {
+  min-height: 230px !important;
+}
+
+html.codex-2007 .composer-surface-chrome[data-qq2007-composer-attachments="true"] [class*="ComposerLayoutAttachments"] {
+  margin-top: 36px !important;
+  overflow: visible !important;
+  pointer-events: auto !important;
+  position: relative !important;
+  z-index: 30 !important;
+}
+
+html.codex-2007 .composer-surface-chrome[data-qq2007-composer-attachments="true"] .composer-attachment-surface,
+html.codex-2007 .composer-surface-chrome[data-qq2007-composer-attachments="true"] [class*="ComposerLayoutAttachments"] button {
+  pointer-events: auto !important;
+  z-index: 31 !important;
+}
+
 .qq2007-composer-tools {
   align-items: center;
   background-color: #eef7fd;
@@ -1862,7 +1955,7 @@ html.codex-2007 .composer-surface-chrome [data-qq2007-native-send-trigger="true"
   display: flex;
   flex: 0 0 var(--qq2007-right-width);
   flex-direction: column;
-  height: auto !important;
+  height: 100%;
   min-height: 0;
   min-width: var(--qq2007-right-width);
   overflow: hidden;
@@ -1941,9 +2034,11 @@ html.codex-2007 .composer-surface-chrome [data-qq2007-native-send-trigger="true"
   border: 1px solid #6ea0c8;
   border-radius: 3px;
   box-shadow: inset 0 0 0 1px #fff, 0 1px 1px rgb(18 75 124 / 18%);
+  box-sizing: border-box;
   display: flex;
   flex: 0 0 auto;
   justify-content: center;
+  margin: 0 0 4px;
   overflow: hidden;
   width: 100%;
 }
@@ -1967,11 +2062,16 @@ html.codex-2007 .composer-surface-chrome [data-qq2007-native-send-trigger="true"
 .qq2007-friend-stage {
   align-items: stretch;
   background: #e7f5ff;
+  border: 1px solid #6ea0c8;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px #fff, 0 1px 1px rgb(18 75 124 / 18%);
+  box-sizing: border-box;
   display: flex;
   flex: 0 0 auto;
   justify-content: center;
+  margin: 4px 5px 0;
   overflow: hidden;
-  width: 100%;
+  width: auto;
 }
 .qq2007-friend-stage > .qq2007-motion-stage {
   aspect-ratio: 240 / 320;
@@ -1989,7 +2089,7 @@ html.codex-2007 .composer-surface-chrome [data-qq2007-native-send-trigger="true"
 .qq2007-bot-stage > .qq2007-motion-stage > img {
   display: block;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   object-position: center center;
   width: 100%;
 }
@@ -2005,6 +2105,47 @@ html.codex-2007 .composer-surface-chrome [data-qq2007-native-send-trigger="true"
 .qq2007-motion-stage > .qq2007-motion-stage-static,
 .qq2007-friend-stage > .qq2007-motion-stage > .qq2007-motion-stage-static {
   display: none;
+}
+
+.qq2007-friends-pane {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+}
+
+.qq2007-friend-row {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: #12324f;
+  cursor: default;
+  display: flex;
+  flex: 0 0 36px;
+  gap: 8px;
+  height: 36px;
+  padding: 0 8px;
+  pointer-events: none;
+  width: 100%;
+}
+
+.qq2007-friend-row-avatar {
+  background: #fff;
+  border: 1px solid #7aa7cc;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px #fff;
+  flex: 0 0 24px;
+  height: 24px;
+  object-fit: cover;
+  object-position: center 18%;
+  width: 24px;
+}
+
+.qq2007-friend-row-name {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
 }
 
 .qq2007-bot-card {
@@ -2024,10 +2165,12 @@ html.codex-2007 .composer-surface-chrome [data-qq2007-native-send-trigger="true"
   background: transparent;
   border: 0;
   display: flex;
-  flex: 0 0 22px;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
   gap: 5px;
-  height: 22px;
-  padding: 0 6px;
+  height: auto;
+  min-height: 26px;
+  padding: 6px 6px 2px;
 }
 
 .qq2007-bot-identity strong {
@@ -2075,9 +2218,10 @@ html.codex-2007 .composer-surface-chrome [data-qq2007-native-send-trigger="true"
   flex: 0 0 auto;
   flex-direction: column;
   font-size: 11px;
-  line-height: 14px;
+  gap: 2px;
+  line-height: 16px;
   margin: 0;
-  padding: 1px 6px 3px;
+  padding: 4px 6px 6px;
 }
 
 .qq2007-signature strong {
@@ -2086,16 +2230,16 @@ html.codex-2007 .composer-surface-chrome [data-qq2007-native-send-trigger="true"
 
 .qq2007-bot-card-line {
   color: #355872;
-  font-size: 10px;
-  line-height: 13px;
-  margin-top: 1px;
+  font-size: 11px;
+  line-height: 16px;
+  margin-top: 0;
 }
 
 .qq2007-signature-meta {
   color: #4b708d;
-  font-size: 9px;
-  line-height: 12px;
-  margin-top: 1px;
+  font-size: 11px;
+  line-height: 16px;
+  margin-top: 0;
 }
 
 .qq2007-right-tool-strip {
@@ -2143,16 +2287,6 @@ html.codex-2007 .composer-surface-chrome [data-qq2007-native-send-trigger="true"
   flex-basis: 34px;
   height: 34px;
   margin-top: 0;
-}
-
-.qq2007-friend-stage {
-  align-items: stretch;
-  background: #e7f5ff;
-  display: flex;
-  flex: 0 0 auto;
-  justify-content: center;
-  overflow: hidden;
-  width: 100%;
 }
 
 .qq2007-friend-search {
@@ -2343,6 +2477,7 @@ html.codex-2007 [data-qq2007-settings-sidebar="true"] {
   height: 100% !important;
   max-height: none !important;
   min-height: 0 !important;
+  max-width: var(--qq2007-left-width) !important;
   min-width: var(--qq2007-left-width) !important;
   overflow: hidden !important;
   width: var(--qq2007-left-width) !important;
@@ -2519,7 +2654,6 @@ html.codex-2007 * {
 }
 
 html.codex-2007 :is(
-  .thread-scroll-container,
   [data-qq2007-settings-navigation="true"],
   [data-qq2007-settings-main="true"]
 ) {
@@ -2633,6 +2767,52 @@ html.codex-2007 *::-webkit-scrollbar-button:horizontal:increment {
 html.codex-2007 *::-webkit-scrollbar-corner {
   background: linear-gradient(135deg, #f7fcff, #c5e1f2);
   border: 1px solid #7ca7c8;
+}
+
+/* Conversation uses Codex native jump/overlay scrolling, not the XP Luna bar.
+ * Keep the left rail and settings on the classic skin. */
+html.codex-2007 main.main-surface .thread-scroll-container,
+html.codex-2007 main.main-surface .thread-scroll-container * {
+  --qq2007-scrollbar-skin: native-jump;
+  scrollbar-color: rgb(23 104 180 / 40%) transparent !important;
+  scrollbar-gutter: auto !important;
+  scrollbar-width: thin !important;
+}
+
+html.codex-2007 main.main-surface .thread-scroll-container::-webkit-scrollbar,
+html.codex-2007 main.main-surface .thread-scroll-container *::-webkit-scrollbar {
+  height: 8px !important;
+  width: 8px !important;
+}
+
+html.codex-2007 main.main-surface .thread-scroll-container::-webkit-scrollbar-track,
+html.codex-2007 main.main-surface .thread-scroll-container *::-webkit-scrollbar-track,
+html.codex-2007 main.main-surface .thread-scroll-container::-webkit-scrollbar-track-piece,
+html.codex-2007 main.main-surface .thread-scroll-container *::-webkit-scrollbar-track-piece,
+html.codex-2007 main.main-surface .thread-scroll-container::-webkit-scrollbar-corner,
+html.codex-2007 main.main-surface .thread-scroll-container *::-webkit-scrollbar-corner {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+html.codex-2007 main.main-surface .thread-scroll-container::-webkit-scrollbar-thumb,
+html.codex-2007 main.main-surface .thread-scroll-container *::-webkit-scrollbar-thumb {
+  background: rgb(23 104 180 / 42%) !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  box-shadow: none !important;
+  min-height: 32px !important;
+  min-width: 8px !important;
+}
+
+html.codex-2007 main.main-surface .thread-scroll-container::-webkit-scrollbar-button,
+html.codex-2007 main.main-surface .thread-scroll-container *::-webkit-scrollbar-button,
+html.codex-2007 main.main-surface .thread-scroll-container::-webkit-scrollbar-button:single-button,
+html.codex-2007 main.main-surface .thread-scroll-container *::-webkit-scrollbar-button:single-button {
+  display: none !important;
+  height: 0 !important;
+  width: 0 !important;
 }
 
 @media (max-width: 760px) {

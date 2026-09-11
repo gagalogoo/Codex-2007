@@ -15,7 +15,7 @@ if ($PSVersionTable.PSEdition -ne 'Desktop') {
 
 $packageRoot = Get-QQPackageRoot
 $injector = Join-Path $packageRoot 'src\injector.mjs'
-$node = (Get-Command node.exe -ErrorAction Stop).Source
+$node = Resolve-QQNode
 $readyFile = Join-Path $script:QQRuntimeRoot 'watcher-ready.json'
 $verifyFile = Join-Path $script:QQRuntimeRoot 'verify.json'
 $domInspectFile = Join-Path $script:QQRuntimeRoot 'dom-before-theme.json'
@@ -63,7 +63,7 @@ try {
     $domDeadline = (Get-Date).AddSeconds(60)
     $nativeDomReady = $false
     do {
-        & $node $injector inspect --port $port --output $domInspectFile
+        Invoke-QQNode -Node $node -Arguments @($injector, "inspect", "--port", [string]$port, "--output", $domInspectFile) | Out-Null
         if ($LASTEXITCODE -eq 0 -and (Test-Path -LiteralPath $domInspectFile -PathType Leaf)) {
             $domInspection = Get-Content -LiteralPath $domInspectFile -Raw -Encoding UTF8 | ConvertFrom-Json
             $nativeDomReady = (
@@ -80,7 +80,7 @@ try {
     }
 
     $assetRoot = Join-Path $script:QQStateRoot 'assets'
-    $watcher = Start-QQWatcher -NodePath $node -InjectorPath $injector -Port $port -ReadyFile $readyFile -AssetRoot $assetRoot
+    $watcher = Start-QQWatcher -NodePath $node.Path -InjectorPath $injector -Port $port -ReadyFile $readyFile -AssetRoot $assetRoot -NodeArguments $node.ExtraArgs
     $deadline = (Get-Date).AddSeconds(60)
     do {
         if ($watcher.HasExited) { throw '主题监视进程提前退出，请查看运行日志。' }
@@ -91,7 +91,7 @@ try {
     $ready = Get-Content -LiteralPath $readyFile -Raw -Encoding UTF8 | ConvertFrom-Json
     if (-not $ready.pass -or -not $ready.applied.pass) { throw '主题监视进程未确认皮肤已应用。' }
 
-    & $node $injector verify --port $port --output $verifyFile
+    Invoke-QQNode -Node $node -Arguments @($injector, "verify", "--port", [string]$port, "--output", $verifyFile) | Out-Null
     if (-not (Test-Path -LiteralPath $verifyFile -PathType Leaf)) { throw '主题布局验收文件未生成。' }
     $verification = Get-Content -LiteralPath $verifyFile -Raw -Encoding UTF8 | ConvertFrom-Json
     $chromeVisible = [bool]$verification.classApplied -and [bool]$verification.nativeAppIntact -and [bool]$verification.nodes.titlebar.visible -and [bool]$verification.nodes.composerChrome.visible
@@ -110,7 +110,7 @@ try {
         watcherPid = $watcher.Id
         watcherStartedAt = $watcher.StartTime.ToUniversalTime().ToString('o')
         injectorPath = [IO.Path]::GetFullPath($injector)
-        nodePath = [IO.Path]::GetFullPath($node)
+        nodePath = [IO.Path]::GetFullPath($node.Path)
         profileAlias = $profile.Alias
         profileTarget = $profile.Target
         codexExecutable = $codex.Executable

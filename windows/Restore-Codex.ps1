@@ -23,11 +23,11 @@ try {
     $port = [int]$state.port
     if ($port -lt 1024 -or $port -gt 65535) { throw '状态中的端口无效。' }
     $codex = Get-QQCodexInstall
-    $node = (Get-Command node.exe -ErrorAction Stop).Source
+    $node = Resolve-QQNode
 
     $endpoint = Get-QQVerifiedEndpoint -Port $port -Codex $codex
     if ($null -ne $endpoint) {
-        & $node $expectedInjector remove --port $port --output (Join-Path $script:QQRuntimeRoot 'restore.json')
+        Invoke-QQNode -Node $node -Arguments @($expectedInjector, "remove", "--port", [string]$port, "--output", (Join-Path $script:QQRuntimeRoot "restore.json")) | Out-Null
         if ($LASTEXITCODE -ne 0) { throw '页面皮肤清理未通过。' }
     }
 

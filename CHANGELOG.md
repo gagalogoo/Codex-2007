@@ -4,6 +4,20 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ## [Unreleased]
 
+### Fixed
+
+- Start scripts no longer blindly use the first Node on PATH. Codex consoles prepend Node 20, which has no global WebSocket; they now prefer Node 22+ and fall back to Node 20 with `--experimental-websocket` so CDP injection no longer throws `WebSocket is not defined`.
+- 锁定左侧会话栏与主对话区的分割条：展开宽度固定 280px，隐藏原生 panel-resizer，并把 `--codex-sidebar-preferred-width` 同步为皮肤变量，避免输入区和消息按钮被拖偏。
+- 右侧栏改为小蓝贴顶、Gary 紧贴查找好友、搜索钉在底部；中间空档只给好友分组，两张全身图按原比例 contain，窗口拉高不再拉伸。
+- 右侧名片行高与签名疏密加大；小蓝和 Gary 舞台四边都有边框；智能伙伴下增加一行 Gary。
+- 作曲器附件条下移到工具条下方，上传图片/文件后可以点关闭删除。
+- 主对话不再被强制 overflow-x:visible；环境信息浮层打开时正文折行让路并暂时隐藏右栏，125% 缩放下也能看完气泡。
+- 左侧「新对话」到「聊天」五个服务图标对齐；重画 Pull Request 图标；会话行图标与标题间距收紧。
+- 项目下的会话行去掉空的 16px 原生图标槽，标题紧贴 QQ 气泡。
+- 主对话不再被 overflow-x:hidden 变成套娃滚动，顶部空滑一屏的空白已去掉。
+- 环境信息浮层按可见卡片左缘给正文让路，125% 缩放下气泡不再钻进浮层。
+- 对话区去掉 XP 滚动条，改回 Codex 原版细跳转条；左侧栏和设置页仍用 Luna 滑块。
+
 ## [1.3.0] - 2026-09-10
 
 ### Changed
