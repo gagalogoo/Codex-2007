@@ -676,11 +676,40 @@ const verifyExpression = `(() => {
   const nestedClipStyle = nestedThreadClip ? getComputedStyle(nestedThreadClip) : null;
   const conversationScrollNotNested = !nestedThreadClip || nestedClipStyle.overflowY === 'visible' || nestedThreadClip.scrollHeight <= nestedThreadClip.clientHeight + 2;
   const threadScrollStyle = threadScroller ? getComputedStyle(threadScroller) : null;
+  const navigationContent = threadScroller?.querySelector('[data-thread-user-message-navigation-content]');
+  const jumpThreadRect = threadScroller?.getBoundingClientRect() ?? null;
+  const navigationRect = navigationContent?.getBoundingClientRect() ?? null;
+  const conversationJumpGutterPx = jumpThreadRect && navigationRect
+    ? navigationRect.left - jumpThreadRect.left
+    : 0;
+  const conversationJumpGutterReady = !threadScroller || conversationJumpGutterPx >= 48;
+  const userMessageBubbleCount = threadScroller
+    ? threadScroller.querySelectorAll('[data-user-message-bubble]').length
+    : 0;
+  const jumpRail = document.querySelector('[data-thread-user-message-navigation-rail-list]');
+  const jumpRailRect = jumpRail?.getBoundingClientRect() ?? null;
+  const jumpRailStyle = jumpRail ? getComputedStyle(jumpRail) : null;
+  const conversationJumpRailVisible = Boolean(
+    jumpRail
+    && jumpRailRect
+    && jumpRailStyle
+    && Number(jumpRailStyle.opacity) > 0
+    && jumpRailStyle.visibility !== 'hidden'
+    && jumpRailStyle.display !== 'none'
+    && jumpRailRect.height >= 40
+    && jumpRailRect.width >= 8
+    && jumpRailRect.width <= 48
+    && jumpThreadRect
+    && jumpRailRect.left >= jumpThreadRect.left - 8
+    && jumpRailRect.left <= jumpThreadRect.left + 40
+  );
   const conversationJumpReady = !threadScroller || (
     threadScrollStyle.getPropertyValue('--qq2007-scrollbar-skin').trim() === 'native-jump'
-    && String(threadScrollStyle.scrollbarGutter || '').includes('stable')
+    && !String(threadScrollStyle.scrollbarGutter || '').includes('both-edges')
     && threadScrollStyle.scrollbarWidth !== 'none'
     && threadScrollStyle.scrollbarWidth !== 'thin'
+    && conversationJumpGutterReady
+    && (userMessageBubbleCount < 4 || conversationJumpRailVisible)
   );
   const classicScrollbarTargets = Array.from(new Set([
     ...Array.from(document.querySelectorAll('[data-qq2007-settings-navigation="true"], [data-qq2007-settings-main="true"], #qq2007-right-panel')).filter((element) => {
@@ -704,6 +733,11 @@ const verifyExpression = `(() => {
   ));
   const retroScrollbarReady = retroScrollbarCssReady && retroScrollbarTargetsReady;
   const conversation = threadScroller?.querySelector('[data-thread-find-target="conversation"]');
+  const conversationProcessRowsTight = !conversation || Array.from(conversation.querySelectorAll('.w-4.shrink-0.items-center.justify-center')).every((slot) => {
+    if (slot.querySelector('svg, img')) return true;
+    const style = getComputedStyle(slot);
+    return style.display === 'none' || slot.getBoundingClientRect().width <= 1;
+  });
   const threadRect = threadScroller?.getBoundingClientRect();
   const conversationRect = conversation?.getBoundingClientRect();
   const visibleTurns = threadRect ? Array.from(threadScroller.querySelectorAll('[data-turn-key]')).filter((turn) => {
@@ -772,12 +806,15 @@ const verifyExpression = `(() => {
   const composerEl = document.querySelector('.composer-surface-chrome') || document.querySelector('[class*="ComposerLayoutRoot"]');
   const attachEl = composerEl?.querySelector('[class*="ComposerLayoutAttachments"]');
   const attachCloseEl = attachEl?.querySelector('button');
+  const toolsBarHidden = !toolsBarEl || getComputedStyle(toolsBarEl).display === 'none' || toolsBarEl.getBoundingClientRect().height <= 1;
+  const attachCloseIsNative = Boolean(attachCloseEl && !attachCloseEl.dataset.qq2007NativeAttachTrigger);
+  const toolsDoNotCoverClose = toolsBarHidden || !attachCloseEl || attachCloseEl.getBoundingClientRect().top >= toolsBarEl.getBoundingClientRect().bottom - 1;
   const composerAttachmentsClickable = !attachEl || attachEl.childElementCount === 0 || Boolean(
-    toolsBarEl
-    && attachCloseEl
-    && attachCloseEl.getBoundingClientRect().top >= toolsBarEl.getBoundingClientRect().bottom - 1
+    attachCloseEl
+    && attachCloseIsNative
     && attachCloseEl.getBoundingClientRect().width >= 12
     && attachCloseEl.getBoundingClientRect().height >= 12
+    && toolsDoNotCoverClose
   );
   const overlayCard = nativeOutputOverlayHost
     ? Array.from(nativeOutputOverlayHost.querySelectorAll('.bg-token-dropdown-background, [class*="bg-surface-elevated-secondary"], [class*="origin-top-right"]')).find((card) => (
@@ -866,6 +903,7 @@ const verifyExpression = `(() => {
     && threadRowIconTextTight
     && conversationScrollNotNested
     && conversationJumpReady
+    && conversationProcessRowsTight
     ))
   );
   return {
@@ -922,6 +960,11 @@ const verifyExpression = `(() => {
       retroScrollbarTargetsReady,
       retroScrollbarTargetCount: classicScrollbarTargets.length,
       conversationJumpReady,
+      conversationJumpGutterReady,
+      conversationJumpGutterPx: Math.round(conversationJumpGutterPx),
+      conversationJumpRailVisible,
+      conversationJumpUserMessageCount: userMessageBubbleCount,
+      conversationProcessRowsTight,
       conversationScrollNotNested,
       contextIndicatorRight: nativeContextRect ? Math.round(nativeContextRect.right) : null,
       contextIndicatorBottom: nativeContextRect ? Math.round(nativeContextRect.bottom) : null,

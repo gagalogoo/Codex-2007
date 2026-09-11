@@ -504,7 +504,14 @@ function Test-RetroScrollbarContract {
         'retroScrollbarTargetCount',
         '--qq2007-scrollbar-skin: native-jump',
         'conversationJumpReady',
-        'scrollbar-gutter: stable both-edges'
+        'conversationJumpGutterReady',
+        'conversationJumpRailVisible',
+        'scrollbar-width: unset !important',
+        'conversationProcessRowsTight',
+        'data-thread-user-message-navigation-content',
+        'data-thread-user-message-navigation-rail-list',
+        'margin-left: 56px !important',
+        'calc(100% - 56px)'
     )) {
         if (-not $css.Contains($contract) -and -not $injector.Contains($contract)) {
             Add-Failure "Missing retro scrollbar contract: $contract"
@@ -512,6 +519,9 @@ function Test-RetroScrollbarContract {
     }
     if ($css -match '(?s)main\.main-surface \.thread-scroll-container[^}]*scrollbar-width:\s*thin') {
         Add-Failure 'Conversation must use the official Electron jump gutter, not scrollbar-width: thin.'
+    }
+    if ($css -match '(?s)main\.main-surface \.thread-scroll-container[^}]*scrollbar-gutter:\s*stable both-edges') {
+        Add-Failure 'Conversation must not reserve both-edges gutters; that splits process rows and hides the official jump rail.'
     }
     if ($css -match 'main\.main-surface \.thread-scroll-container::-webkit-scrollbar') {
         Add-Failure 'Do not style conversation ::-webkit-scrollbar; that disables Electron overlay jump scrolling.'
@@ -521,6 +531,27 @@ function Test-RetroScrollbarContract {
     }
     if ($css -notmatch '\*:not\(\.thread-scroll-container, \.thread-scroll-container \*\)::-webkit-scrollbar') {
         Add-Failure 'Luna scrollbar selectors must exclude the conversation scroller.'
+    }
+    if ($css -match '(?m)html\.codex-2007,\s*html\.codex-2007 \* \{') {
+        Add-Failure 'Do not set inheritable scrollbar-width on html.codex-2007 *; conversation must unset overlay scrolling separately.'
+    }
+    if ($css -notmatch 'main\.main-surface \[data-thread-user-message-navigation-content="true"\]') {
+        Add-Failure 'Conversation content wrapper must keep a 56px element-level left gutter for the official jump rail.'
+    }
+    if ($css -notmatch ':not\(\[data-thread-user-message-navigation-content\]\)') {
+        Add-Failure 'Wide-thread width:100% rules must exclude the official navigation-content wrapper.'
+    }
+    if ($css -match '(?s)\[data-thread-user-message-navigation-content="true"\][^}]*margin-left:\s*0') {
+        Add-Failure 'Do not zero the official navigation-content left margin; the jump rail needs >= 48px element offset.'
+    }
+    if ($css -match '(?s)\[data-thread-user-message-navigation-content="true"\][^}]*width:\s*100%') {
+        Add-Failure 'Do not set navigation-content to width 100%; that collapses the official jump-rail gutter.'
+    }
+    if ($injector -notmatch 'conversationJumpGutterPx >= 48') {
+        Add-Failure 'conversationJumpReady must require a >= 48px element-level left gutter.'
+    }
+    if ($injector -notmatch 'userMessageBubbleCount < 4 \|\| conversationJumpRailVisible') {
+        Add-Failure 'conversationJumpReady must require a visible official rail when there are 4+ user messages.'
     }
 }
 
@@ -687,14 +718,33 @@ function Test-ComposerAttachmentsContract {
         'ComposerLayoutAttachments',
         'data-qq2007-composer-attachments',
         'const syncComposerAttachments =',
-        'composerAttachmentsClickable'
+        'composerAttachmentsClickable',
+        'isAttachmentChipControl',
+        'attachCloseIsNative'
     )) {
         if (-not $runtime.Contains($contract) -and -not $css.Contains($contract) -and -not $injector.Contains($contract)) {
             Add-Failure "Missing composer-attachment contract: $contract"
         }
     }
-    if ($css -notmatch 'margin-top:\s*36px !important') {
-        Add-Failure 'Attachment strip must clear the 34px composer toolbar.'
+    if ($css -match 'margin-top:\s*36px !important') {
+        Add-Failure 'Do not push official attachment chips below a custom QQ toolbar.'
+    }
+    if ($css -notmatch '(?s)\[data-qq2007-composer-attachments="true"\] \.qq2007-composer-tools\s*\{[^}]*display:\s*none') {
+        Add-Failure 'QQ composer tools must yield while official attachments are visible.'
+    }
+}
+
+function Test-ConversationProcessLayoutContract {
+    $css = Get-Content -LiteralPath (Join-Path $root 'src/skin.css') -Raw -Encoding UTF8
+    $injector = Get-Content -LiteralPath (Join-Path $root 'src/injector.mjs') -Raw -Encoding UTF8
+    foreach ($contract in @(
+        'conversationProcessRowsTight',
+        '.w-4.shrink-0.items-center.justify-center:not(:has(svg)):not(:has(img))',
+        '.flex > [data-message-author-role]'
+    )) {
+        if (-not $css.Contains($contract) -and -not $injector.Contains($contract)) {
+            Add-Failure "Missing conversation process-layout contract: $contract"
+        }
     }
 }
 
@@ -721,7 +771,8 @@ function Test-ThreadOverlayGutterContract {
         'nativeOverlayLeavesLayout',
         'lockConversationScrollParent',
         'conversationScrollNotNested',
-        '[data-thread-find-target="conversation"] > .relative.shrink-0'
+        'data-thread-user-message-navigation-content',
+        'conversationJumpNudged'
     )) {
         if (-not $css.Contains($contract) -and -not $runtime.Contains($contract) -and -not $injector.Contains($contract)) {
             Add-Failure "Missing thread overlay layout contract: $contract"
@@ -773,6 +824,7 @@ Test-ResolvedNodeProvidesWebSocket
 Test-LockedSidebarSplitContract
 Test-RightPanelPinnedStagesContract
 Test-ComposerAttachmentsContract
+Test-ConversationProcessLayoutContract
 Test-ThreadOverlayGutterContract
 Test-SidebarNavAlignmentContract
 

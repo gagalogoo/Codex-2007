@@ -722,6 +722,17 @@
         thread.dispatchEvent(new Event("scroll"));
       });
     }
+    const content = thread.querySelector("[data-thread-user-message-navigation-content]");
+    if (content && !state.conversationJumpNudged) {
+      const gutter = content.getBoundingClientRect().left - thread.getBoundingClientRect().left;
+      if (gutter >= 48) {
+        state.conversationJumpNudged = true;
+        window.requestAnimationFrame(() => {
+          window.dispatchEvent(new Event("resize"));
+          thread.dispatchEvent(new Event("scroll"));
+        });
+      }
+    }
   };
 
   const syncNativeOutputOverlay = () => {
@@ -779,10 +790,15 @@
   const detectComposerControls = () => {
     const composer = findComposer();
     if (!composer) return;
+    const isAttachmentChipControl = (button) => Boolean(
+      button.closest('[class*="ComposerLayoutAttachments"], .composer-attachment-surface')
+    );
+    const controlLabel = (button) => `${normalize(button.getAttribute('aria-label'))} ${normalize(button.title)} ${normalize(button.textContent)}`;
+    const isRemoveControl = (button) => /remove|delete|关闭|删除|清除|dismiss/i.test(controlLabel(button));
     const buttons = Array.from(composer.querySelectorAll('button')).filter((button) => !button.closest('[id^="qq2007-"]'));
     const previousSendButton = state.nativeSendButton;
     const explicitSendButton = buttons.find((button) => {
-      const label = `${normalize(button.getAttribute('aria-label'))} ${normalize(button.title)} ${normalize(button.textContent)}`;
+      const label = controlLabel(button);
       return /发送|send|submit/i.test(label);
     });
     const primaryComposerButton = buttons.find((button) => /size-token-button-composer/.test(String(button.className)));
@@ -794,12 +810,23 @@
     }
     if (state.nativeSendButton) state.nativeSendButton.dataset.qq2007NativeSendTrigger = 'true';
     const previousAttachButton = state.nativeAttachButton;
-    state.nativeAttachButton = buttons.find((button) => {
-      const label = `${normalize(button.getAttribute('aria-label'))} ${normalize(button.title)} ${normalize(button.textContent)}`;
-      return /附件|附加|attach|add context|添加/i.test(label);
-    }) || (state.nativeAttachButton?.isConnected ? state.nativeAttachButton : null);
+    const attachCandidate = buttons.find((button) => {
+      if (isAttachmentChipControl(button) || isRemoveControl(button)) return false;
+      return /附件|附加|attach|add context|添加/i.test(controlLabel(button));
+    });
+    const attachFallback = state.nativeAttachButton?.isConnected
+      && !isAttachmentChipControl(state.nativeAttachButton)
+      && !isRemoveControl(state.nativeAttachButton)
+      ? state.nativeAttachButton
+      : null;
+    state.nativeAttachButton = attachCandidate || attachFallback;
     if (previousAttachButton && previousAttachButton !== state.nativeAttachButton) delete previousAttachButton.dataset.qq2007NativeAttachTrigger;
     if (state.nativeAttachButton) state.nativeAttachButton.dataset.qq2007NativeAttachTrigger = 'true';
+    for (const button of buttons) {
+      if (isAttachmentChipControl(button) && button.dataset.qq2007NativeAttachTrigger) {
+        delete button.dataset.qq2007NativeAttachTrigger;
+      }
+    }
 
     const previousAccessButton = state.nativeAccessButton;
     state.nativeAccessButton = buttons.find((button) => {
@@ -824,7 +851,6 @@
       state.nativeContextIndicator.dataset.qq2007ContextValue = contextValue ? `${contextValue}%` : '';
     }
     const previousModelButton = state.nativeModelButton;
-    const controlLabel = (button) => `${normalize(button.getAttribute('aria-label'))} ${normalize(button.title)} ${normalize(button.textContent)}`;
     const isReservedComposerControl = (button) => (
       button === state.nativeSendButton
       || button === state.nativeAttachButton
@@ -1896,6 +1922,10 @@
     decorateHomeSurface();
     decorateMessageContent();
     for (const node of document.querySelectorAll('main [class*="max-w-3xl"], main [class*="thread-content-max-width"], main [class*="thread-body-max-width"], main [class*="TableContainer"], main [class*="TableScroller"], main [class*="TableWrapper"]')) {
+      if (node.hasAttribute('data-thread-user-message-navigation-content')) {
+        delete node.dataset.qq2007WideThread;
+        continue;
+      }
       node.dataset.qq2007WideThread = 'true';
     }
     renameTextNodes();

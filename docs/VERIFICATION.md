@@ -25,7 +25,10 @@ echo $LASTEXITCODE
 - 个人资料、模型和发送原生动作就绪；
 - 发送可见区域命中原生按钮；
 - `retroComposerControlsReady=true`：附件、访问权限和模型选择均保留原生动作并使用 QQ2007 控件外观；`nativeContextIndicatorReady=true`，真实上下文用量图标与百分比位于模型按钮左侧，二者至少间隔 4px；
-- `retroScrollbarReady=true` 且 `retroScrollbarTargetCount` 至少为 1：可滚动区域使用 17px XP Luna/QQ2007 滚动条，滑块、轨道和四向箭头按钮样式完整；
+- `retroScrollbarReady=true` 且 `retroScrollbarTargetCount` 至少为 1：设置页等可滚动区域使用 17px XP Luna/QQ2007 滚动条，滑块、轨道和四向箭头按钮样式完整；
+- `conversationJumpReady=true`：对话内容包装器相对 `.thread-scroll-container` 的左偏移至少 48px；有 4 条及以上用户消息时，官方 `[data-thread-user-message-navigation-rail-list]` 可见（高度 ≥ 40、宽度 8–48px）。少于 4 条用户消息时官方本身不画刻度，只要求 gutter。这不是 CSS 滚动条。
+- `conversationProcessRowsTight=true`：过程/工具进度行没有空的 16px 左侧图标槽，也不会被撑成左右分栏；
+- 存在附件时 `composerAttachmentsClickable=true`：官方关闭按钮可见且未被 QQ 工具条覆盖，且没有被打上 `data-qq2007-native-attach-trigger`；
 - `nativeNewTaskBackdropCleared=true`：左侧“新建任务”文字按钮及其原生复合动作容器不再保留 Codex 圆角底板，右侧加号仍可点击；
 - 标题栏 41px、工具栏 54px、状态栏 32px；
 - `nativeWindowControlsReady=true`、`duplicateWindowControlGlyphsAbsent=true`，且 `nativeWindowControlsSafeInset` 至少为 96px；页面不得绘制第二套窗口按钮或复古底板；

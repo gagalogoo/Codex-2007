@@ -1029,16 +1029,27 @@ html.codex-2007 main.main-surface .thread-scroll-container {
   max-width: none !important;
   min-width: 0 !important;
 }
-html.codex-2007 [data-qq2007-wide-thread="true"],
-html.codex-2007 main [class*="max-w-3xl"],
-html.codex-2007 main [class*="thread-content-max-width"],
-html.codex-2007 main [class*="thread-body-max-width"] {
+html.codex-2007 [data-qq2007-wide-thread="true"]:not([data-thread-user-message-navigation-content]),
+html.codex-2007 main [class*="max-w-3xl"]:not([data-thread-user-message-navigation-content]),
+html.codex-2007 main [class*="thread-content-max-width"]:not([data-thread-user-message-navigation-content]),
+html.codex-2007 main [class*="thread-body-max-width"]:not([data-thread-user-message-navigation-content]) {
   box-sizing: border-box !important;
   margin-left: 0 !important;
   margin-right: 0 !important;
   max-width: 100% !important;
   min-width: 0 !important;
   width: 100% !important;
+}
+/* Official AppThreadUserMessageNavigationRail only mounts when the content
+ * element's left edge is >= 48px inside the thread scroller. Padding does not
+ * count. Keep messages full-width to the right of this gutter. */
+html.codex-2007 main.main-surface [data-thread-user-message-navigation-content="true"] {
+  box-sizing: border-box !important;
+  margin-left: 56px !important;
+  margin-right: 0 !important;
+  max-width: calc(100% - 56px) !important;
+  min-width: 0 !important;
+  width: calc(100% - 56px) !important;
 }
 html.codex-2007 main [class*="TableContainer"],
 html.codex-2007 main [class*="TableScroller"],
@@ -1057,15 +1068,6 @@ html.codex-2007 main .overflow-x-clip {
   min-width: 0 !important;
 }
 
-/* Native conversation virtualizer keeps a stale totalSize/margin after the
- * nested overflow parent is removed. Collapse that spacer so the thread
- * scroller only contains real turns, restoring Codex jump scrolling. */
-html.codex-2007 main.main-surface [data-thread-find-target="conversation"] > .relative.shrink-0 {
-  height: auto !important;
-}
-html.codex-2007 main.main-surface [data-thread-find-target="conversation"] > .relative.shrink-0 > .flex.flex-col {
-  margin-top: 0 !important;
-}
 html.codex-2007 main [class*="overflow-x-auto"],
 html.codex-2007 main .overflow-x-auto {
   max-width: 100% !important;
@@ -1080,6 +1082,24 @@ html.codex-2007 main [class*="_markdownContent_"] {
   min-width: 0 !important;
   overflow-wrap: anywhere;
   width: 100% !important;
+}
+/* Process/commentary rows are icon+text flex items. Width 100% on the text
+ * child stretches the row into a split pane with an empty left column. */
+html.codex-2007 main.main-surface [data-thread-find-target="conversation"] .flex > article,
+html.codex-2007 main.main-surface [data-thread-find-target="conversation"] .flex > [data-message-author-role] {
+  flex: 1 1 auto !important;
+  width: auto !important;
+}
+/* Empty 16px leading slots (hidden native glyphs) also split process lines. */
+html.codex-2007 main.main-surface [data-thread-find-target="conversation"] .w-4.shrink-0.items-center.justify-center:not(:has(svg)):not(:has(img)) {
+  display: none !important;
+  flex: 0 0 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  width: 0 !important;
 }
 /* Environment info stays a native floating overlay. Do not hide the QQ
  * right column or squeeze the conversation with a padding gutter. */
@@ -1655,22 +1675,26 @@ html.codex-2007 .composer-surface-chrome [contenteditable="true"] {
   z-index: 20;
 }
 
-html.codex-2007 .composer-surface-chrome[data-qq2007-composer-attachments="true"] {
-  min-height: 230px !important;
+/* Official attachment chips stay in the native row. Hide the QQ emoji/image
+ * toolbar so it cannot cover the native close control. */
+html.codex-2007 .composer-surface-chrome[data-qq2007-composer-attachments="true"] .qq2007-composer-tools {
+  display: none !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+}
+
+html.codex-2007 .composer-surface-chrome[data-qq2007-composer-attachments="true"] textarea,
+html.codex-2007 .composer-surface-chrome[data-qq2007-composer-attachments="true"] [contenteditable="true"] {
+  padding-top: 12px !important;
 }
 
 html.codex-2007 .composer-surface-chrome[data-qq2007-composer-attachments="true"] [class*="ComposerLayoutAttachments"] {
-  margin-top: 36px !important;
+  margin-top: 0 !important;
   overflow: visible !important;
   pointer-events: auto !important;
   position: relative !important;
   z-index: 30 !important;
-}
-
-html.codex-2007 .composer-surface-chrome[data-qq2007-composer-attachments="true"] .composer-attachment-surface,
-html.codex-2007 .composer-surface-chrome[data-qq2007-composer-attachments="true"] [class*="ComposerLayoutAttachments"] button {
-  pointer-events: auto !important;
-  z-index: 31 !important;
 }
 
 .qq2007-composer-tools {
@@ -2632,11 +2656,16 @@ html.codex-2007 [data-qq2007-settings-main="true"] ::-webkit-scrollbar-thumb {
 /* Windows XP Luna / QQ2007 scrollbars: a complete control with arrow buttons,
  * a pale blue recessed shaft and a glossy plastic thumb. Keep this block after
  * the settings rules so every Codex scroll surface receives the same skin. */
-html.codex-2007,
-html.codex-2007 * {
+html.codex-2007 {
+  --qq2007-scrollbar-skin: xp-luna;
+}
+
+html.codex-2007 *:not(.thread-scroll-container, .thread-scroll-container *) {
   --qq2007-scrollbar-skin: xp-luna;
   /* A non-auto standards value makes Chromium suppress the richer WebKit
-   * thumb/button rules below and fall back to a flat modern scrollbar. */
+   * thumb/button rules below and fall back to a flat modern scrollbar.
+   * Do not set this on html.codex-2007 itself: scrollbar-width inherits and
+   * would force classic bars on the conversation scroller. */
   scrollbar-color: auto !important;
   scrollbar-width: auto !important;
 }
@@ -2757,14 +2786,15 @@ html.codex-2007 *:not(.thread-scroll-container, .thread-scroll-container *)::-we
   border: 1px solid #7ca7c8;
 }
 
-/* Conversation must not receive any ::-webkit-scrollbar rules. Those force
- * classic Chromium bars and hide Codex Electron overlay jump scrolling. */
+/* Conversation must not receive any ::-webkit-scrollbar rules or forced
+ * scrollbar-width. Those create classic gutters and hide Codex Electron
+ * overlay jump scrolling. both-edges also splits process/commentary rows. */
 html.codex-2007 main.main-surface .thread-scroll-container,
 html.codex-2007 main.main-surface .thread-scroll-container * {
   --qq2007-scrollbar-skin: native-jump;
-  scrollbar-color: auto !important;
-  scrollbar-gutter: stable both-edges !important;
-  scrollbar-width: auto !important;
+  scrollbar-color: unset !important;
+  scrollbar-gutter: auto !important;
+  scrollbar-width: unset !important;
 }
 
 @media (max-width: 760px) {
