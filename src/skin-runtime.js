@@ -729,21 +729,6 @@
     if (state.nativeEnvHost && state.nativeEnvHost !== host) clearNativeEnvDock(state.nativeEnvHost);
     state.nativeEnvHost = host || null;
     if (host) clearNativeEnvDock(host);
-    const card = findNativeOverlayCard(host);
-    const active = Boolean(card);
-    if (active) {
-      const main = document.querySelector("main.main-surface");
-      const mainRect = main && main.getBoundingClientRect();
-      const cardRect = card.getBoundingClientRect();
-      const gutter = mainRect
-        ? Math.max(24, Math.round(mainRect.right - cardRect.left + 16))
-        : Math.round(cardRect.width + 16);
-      document.documentElement.dataset.qq2007NativeOverlay = "true";
-      document.documentElement.style.setProperty("--qq2007-thread-overlay-gutter", String(gutter) + "px");
-    } else {
-      delete document.documentElement.dataset.qq2007NativeOverlay;
-      document.documentElement.style.removeProperty("--qq2007-thread-overlay-gutter");
-    }
     lockConversationScrollParent();
   };
 
@@ -1993,8 +1978,6 @@
       document.documentElement.style.removeProperty(property);
     }
     document.documentElement.style.removeProperty('--codex-sidebar-preferred-width');
-    document.documentElement.style.removeProperty('--qq2007-thread-overlay-gutter');
-    delete document.documentElement.dataset.qq2007NativeOverlay;
     for (const node of document.querySelectorAll('[data-qq2007-composer-attachments]')) delete node.dataset.qq2007ComposerAttachments;
     if (state.onSidebarTriggerPointerDown) {
       document.removeEventListener('pointerdown', state.onSidebarTriggerPointerDown, true);

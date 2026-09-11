@@ -243,7 +243,7 @@ function Test-NativeFloatingTrayScope {
         "card.closest('.origin-top-right')",
         'new DOMMatrixReadOnly(transform)',
         'isNativeInformationTray',
-        'mainRect.right - cardRect.left'
+        'nativeOverlayLeavesLayout'
     )) {
         if (-not $runtime.Contains($contract) -and -not $injector.Contains($contract)) {
             Add-Failure "Missing native floating-tray scope contract: $contract"
@@ -503,11 +503,24 @@ function Test-RetroScrollbarContract {
         'retroScrollbarTargetsReady',
         'retroScrollbarTargetCount',
         '--qq2007-scrollbar-skin: native-jump',
-        'conversationJumpReady'
+        'conversationJumpReady',
+        'scrollbar-gutter: stable both-edges'
     )) {
         if (-not $css.Contains($contract) -and -not $injector.Contains($contract)) {
             Add-Failure "Missing retro scrollbar contract: $contract"
         }
+    }
+    if ($css -match '(?s)main\.main-surface \.thread-scroll-container[^}]*scrollbar-width:\s*thin') {
+        Add-Failure 'Conversation must use the official Electron jump gutter, not scrollbar-width: thin.'
+    }
+    if ($css -match 'main\.main-surface \.thread-scroll-container::-webkit-scrollbar') {
+        Add-Failure 'Do not style conversation ::-webkit-scrollbar; that disables Electron overlay jump scrolling.'
+    }
+    if ($css -match '(?m)html\.codex-2007 \*::-webkit-scrollbar') {
+        Add-Failure 'Luna ::-webkit-scrollbar must exclude .thread-scroll-container so overlay jump scrolling survives.'
+    }
+    if ($css -notmatch '\*:not\(\.thread-scroll-container, \.thread-scroll-container \*\)::-webkit-scrollbar') {
+        Add-Failure 'Luna scrollbar selectors must exclude the conversation scroller.'
     }
 }
 
@@ -698,16 +711,20 @@ function Test-ThreadOverlayGutterContract {
     if ($css -match '(?s)main \[class\*="overflow-x-clip"\][^}]*overflow-x:\s*hidden') {
         Add-Failure 'Message column overflow-x:hidden creates a nested Y scroller.'
     }
+    if ($css -match '(?s)\[data-qq2007-native-overlay="true"\][^{]*#qq2007-right-panel\s*\{[^}]*display:\s*none') {
+        Add-Failure 'Environment overlay must not hide the QQ right panel.'
+    }
+    if ($css.Contains('--qq2007-thread-overlay-gutter') -or $runtime.Contains('--qq2007-thread-overlay-gutter')) {
+        Add-Failure 'Do not add a thread overlay gutter that squeezes the conversation left.'
+    }
     foreach ($contract in @(
-        '--qq2007-thread-overlay-gutter',
-        'data-qq2007-native-overlay',
-        'threadClearsNativeOverlay',
+        'nativeOverlayLeavesLayout',
         'lockConversationScrollParent',
         'conversationScrollNotNested',
         '[data-thread-find-target="conversation"] > .relative.shrink-0'
     )) {
         if (-not $css.Contains($contract) -and -not $runtime.Contains($contract) -and -not $injector.Contains($contract)) {
-            Add-Failure "Missing thread overlay-gutter contract: $contract"
+            Add-Failure "Missing thread overlay layout contract: $contract"
         }
     }
 }

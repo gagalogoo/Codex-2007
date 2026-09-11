@@ -675,9 +675,12 @@ const verifyExpression = `(() => {
   const nestedThreadClip = threadScroller?.querySelector('[class*="overflow-x-clip"], .overflow-x-clip');
   const nestedClipStyle = nestedThreadClip ? getComputedStyle(nestedThreadClip) : null;
   const conversationScrollNotNested = !nestedThreadClip || nestedClipStyle.overflowY === 'visible' || nestedThreadClip.scrollHeight <= nestedThreadClip.clientHeight + 2;
+  const threadScrollStyle = threadScroller ? getComputedStyle(threadScroller) : null;
   const conversationJumpReady = !threadScroller || (
-    getComputedStyle(threadScroller).getPropertyValue('--qq2007-scrollbar-skin').trim() === 'native-jump'
-    && getComputedStyle(threadScroller).scrollbarWidth === 'thin'
+    threadScrollStyle.getPropertyValue('--qq2007-scrollbar-skin').trim() === 'native-jump'
+    && String(threadScrollStyle.scrollbarGutter || '').includes('stable')
+    && threadScrollStyle.scrollbarWidth !== 'none'
+    && threadScrollStyle.scrollbarWidth !== 'thin'
   );
   const classicScrollbarTargets = Array.from(new Set([
     ...Array.from(document.querySelectorAll('[data-qq2007-settings-navigation="true"], [data-qq2007-settings-main="true"], #qq2007-right-panel')).filter((element) => {
@@ -737,7 +740,7 @@ const verifyExpression = `(() => {
   const rightPanelEl = document.getElementById('qq2007-right-panel');
   const friendSearchEl = rightPanelEl?.querySelector('.qq2007-friend-search');
   const friendStageEl = rightPanelEl?.querySelector('.qq2007-friend-stage');
-  const skipRightPin = settingsSurface || !wideEnoughForRightPanel || nativeOutputOverlayActive || !rightPanelEl;
+  const skipRightPin = settingsSurface || !wideEnoughForRightPanel || !rightPanelEl;
   const friendSearchPinnedToBottom = skipRightPin || Boolean(
     friendSearchEl
     && rightPanelEl.lastElementChild === friendSearchEl
@@ -785,9 +788,14 @@ const verifyExpression = `(() => {
     ))
     : null;
   const overlayRect = (overlayCard || nativeOutputOverlayHost)?.getBoundingClientRect();
-  const threadClearsNativeOverlay = !nativeOutputOverlayActive || !overlayRect || visibleTurns.length === 0 || visibleTurns.every((turn) => (
-    turn.getBoundingClientRect().right <= overlayRect.left + 2
-  ));
+  const overlayHostStyle = nativeOutputOverlayHost ? getComputedStyle(nativeOutputOverlayHost) : null;
+  const threadPaddingRight = threadScroller ? Number.parseFloat(threadScrollStyle.paddingRight) || 0 : 0;
+  const nativeOverlayLeavesLayout = !nativeOutputOverlayActive || Boolean(
+    overlayHostStyle
+    && overlayHostStyle.position === 'absolute'
+    && threadPaddingRight <= 24
+    && (!wideEnoughForRightPanel || nodes.rightPanel?.visible)
+  );
   const navIconLefts = Array.from(document.querySelectorAll('aside.app-shell-left-panel [data-qq2007-nav] > .qq2007-native-nav-icon, #qq2007-left-chat-shortcut > .qq2007-native-nav-icon'))
     .map((icon) => icon.getBoundingClientRect())
     .filter((rect) => rect.width >= 12 && rect.height >= 12 && rect.left < 80)
@@ -817,7 +825,7 @@ const verifyExpression = `(() => {
     && nodes.mainTitle?.visible
     && nodes.composerChrome?.visible
     && nodes.statusbar?.visible
-    && (!wideEnoughForRightPanel || nativeOutputOverlayActive || nodes.rightPanel?.visible)
+    && (!wideEnoughForRightPanel || nodes.rightPanel?.visible)
     && nodes.titlebar.rect.height >= 40
     && nodes.titlebar.rect.height <= 42
     && (nodes.toolbar?.visible ? nodes.toolbar.rect.height === 54 : true)
@@ -853,7 +861,7 @@ const verifyExpression = `(() => {
     && partnerFriendRowReady
     && stageFramesReady
     && composerAttachmentsClickable
-    && threadClearsNativeOverlay
+    && nativeOverlayLeavesLayout
     && sidebarNavIconsAligned
     && threadRowIconTextTight
     && conversationScrollNotNested
@@ -990,7 +998,7 @@ const verifyExpression = `(() => {
       partnerFriendRowReady,
       stageFramesReady,
       composerAttachmentsClickable,
-      threadClearsNativeOverlay,
+      nativeOverlayLeavesLayout,
       sidebarNavIconsAligned,
       threadRowIconTextTight,
     },
