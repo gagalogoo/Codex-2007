@@ -1910,6 +1910,13 @@ html.codex-2007 .composer-surface-chrome [data-qq2007-native-model-trigger="true
 
 /* The visible QQ button remains decorative; this transparent, resized native
  * control is the physical click target so the message is sent by Codex itself. */
+/* Hide leftover native Git Commit/submit letters inside the composer. The QQ send
+ * graphic stays visible; official attachment close and jump rail are untouched. */
+html.codex-2007 .composer-surface-chrome button[data-qq2007-native-commit-label="true"] {
+  color: transparent !important;
+  font-size: 0 !important;
+}
+
 html.codex-2007 .composer-surface-chrome [data-qq2007-native-send-trigger="true"] {
   bottom: 7px !important;
   height: 31px !important;

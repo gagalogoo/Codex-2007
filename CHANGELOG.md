@@ -17,6 +17,7 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 - 主对话不再被 overflow-x:hidden 变成套娃滚动，顶部空滑一屏的空白已去掉。
 - 对话内容包装器让出 56px 元素级左边，并停止压扁虚拟列表 spacer，官方用户消息跳转滑轨（hash 刻度）才能挂载；不是 CSS 滚动条。左侧栏和设置页仍用 Luna 滑块。
 - 过程消息不再被 width:100% 和空图标槽撑成左右分栏，工具进度行与正文对齐。
+- 作曲器改名不再扫输入框：`提交`/`Commit` 只映射按钮，中文输入和整段 `Commit` 都不会被改成或追加「发送消息」。
 
 ## [1.3.0] - 2026-09-10
 

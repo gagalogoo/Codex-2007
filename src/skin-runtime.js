@@ -46,6 +46,7 @@
     homeWelcomeTop: null,
     nativeEnvHost: null,
     conversationScrollNudged: false,
+    composingInComposer: false,
   };
   window[STATE_KEY] = state;
 
@@ -873,6 +874,21 @@
     if (previousModelButton && previousModelButton !== modelButton) delete previousModelButton.dataset.qq2007NativeModelTrigger;
     state.nativeModelButton = modelButton;
     if (state.nativeModelButton) state.nativeModelButton.dataset.qq2007NativeModelTrigger = 'true';
+    for (const button of buttons) {
+      if (
+        button === state.nativeSendButton
+        || isAttachmentChipControl(button)
+        || isRemoveControl(button)
+      ) {
+        delete button.dataset.qq2007NativeCommitLabel;
+        continue;
+      }
+      if (/^(提交|commit|发送消息)$/i.test(normalize(button.textContent))) {
+        button.dataset.qq2007NativeCommitLabel = 'true';
+      } else {
+        delete button.dataset.qq2007NativeCommitLabel;
+      }
+    }
   };
 
   const makeComposerChrome = () => {
@@ -1074,6 +1090,17 @@
   };
   state.showToast = showToast;
 
+  const COMPOSER_EDITOR_SELECTOR = 'textarea, [contenteditable="true"], .ProseMirror, [data-placeholder]';
+  const composerEditorHost = (node) => {
+    const element = node instanceof Element ? node : node?.parentElement;
+    return Boolean(element?.closest?.(COMPOSER_EDITOR_SELECTOR));
+  };
+  const composerEditorMutation = (mutation) => {
+    if (mutation.type !== 'characterData' && mutation.type !== 'childList') return false;
+    const target = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;
+    return composerEditorHost(target);
+  };
+
   const textMappings = new Map([
     ['提交', '发送消息'],
     ['Commit', '发送消息'],
@@ -1085,6 +1112,7 @@
       let node;
       while ((node = walker.nextNode())) {
         if (node.parentElement?.closest('[id^="qq2007-"]')) continue;
+        if (composerEditorHost(node)) continue;
         const raw = node.nodeValue || '';
         const value = normalize(raw);
         const replacement = textMappings.get(value);
@@ -1105,6 +1133,7 @@
     );
     for (const element of elements) {
       if (element.closest('[id^="qq2007-"]')) continue;
+      if (composerEditorHost(element)) continue;
       for (const attribute of ['aria-label', 'title']) {
         const current = normalize(element.getAttribute(attribute));
         const match = current && attributeMappings.find(([pattern]) => pattern.test(current));
@@ -1690,7 +1719,7 @@
   const removeNormalThemeArtifacts = () => {
     for (const id of ['qq2007-window-title', 'qq2007-toolbar', 'qq2007-left-header', 'qq2007-left-profile', 'qq2007-main-title', 'qq2007-right-panel', 'qq2007-composer-chrome', 'qq2007-statusbar', 'qq2007-toast', 'qq2007-left-chat-shortcut', 'qq2007-home-welcome']) byId(id)?.remove();
     for (const node of document.querySelectorAll('.qq2007-native-nav-icon, .qq2007-folder-icon, .qq2007-home-card-badge, .qq2007-home-card-copy, .qq2007-message-action-icon, .qq2007-message-action-label, [data-qq2007-thread-more]')) node.remove();
-    for (const node of document.querySelectorAll('[data-qq2007-shell-host], [data-qq2007-workspace-host], [data-qq2007-row-host], [data-qq2007-topbar-host], [data-qq2007-nav], [data-qq2007-native-nav-paint-host], [data-qq2007-native-nav-glyph], [data-qq2007-folder-row], [data-qq2007-thread-row], [data-qq2007-section-heading], [data-qq2007-section-row], [data-qq2007-section], [data-qq2007-native-aside-header], [data-qq2007-native-search], [data-qq2007-native-profile-footer], [data-qq2007-native-profile-host], [data-qq2007-native-profile-paint-host], [data-qq2007-native-profile-trigger], [data-qq2007-native-help], [data-qq2007-native-update-action], [data-qq2007-native-update-slot], [data-qq2007-native-update-active], [data-qq2007-native-model-trigger], [data-qq2007-native-send-trigger], [data-qq2007-home-suggestions], [data-qq2007-home-prompt], [data-qq2007-home-card], [data-qq2007-home-native-card-body], [data-qq2007-message-action], [data-qq2007-message-actions], [data-qq2007-message-time], [data-qq2007-message-native-icon], pre[data-qq2007-code-language]')) {
+    for (const node of document.querySelectorAll('[data-qq2007-shell-host], [data-qq2007-workspace-host], [data-qq2007-row-host], [data-qq2007-topbar-host], [data-qq2007-nav], [data-qq2007-native-nav-paint-host], [data-qq2007-native-nav-glyph], [data-qq2007-folder-row], [data-qq2007-thread-row], [data-qq2007-section-heading], [data-qq2007-section-row], [data-qq2007-section], [data-qq2007-native-aside-header], [data-qq2007-native-search], [data-qq2007-native-profile-footer], [data-qq2007-native-profile-host], [data-qq2007-native-profile-paint-host], [data-qq2007-native-profile-trigger], [data-qq2007-native-help], [data-qq2007-native-update-action], [data-qq2007-native-update-slot], [data-qq2007-native-update-active], [data-qq2007-native-model-trigger], [data-qq2007-native-send-trigger], [data-qq2007-native-commit-label], [data-qq2007-home-suggestions], [data-qq2007-home-prompt], [data-qq2007-home-card], [data-qq2007-home-native-card-body], [data-qq2007-message-action], [data-qq2007-message-actions], [data-qq2007-message-time], [data-qq2007-message-native-icon], pre[data-qq2007-code-language]')) {
       for (const attribute of Array.from(node.attributes)) {
         if (attribute.name.startsWith('data-qq2007-')) node.removeAttribute(attribute.name);
       }
@@ -1937,9 +1966,19 @@
   };
   const queueReconcile = () => {
     if (hasNativeApprovalSurface()) return;
+    if (state.composingInComposer && composerEditorHost(document.activeElement)) return;
     if (state.reconcileQueued) return;
     state.reconcileQueued = true;
     setTimer(reconcile, 100);
+  };
+
+  const onComposerCompositionStart = (event) => {
+    if (composerEditorHost(event.target)) state.composingInComposer = true;
+  };
+  const onComposerCompositionEnd = (event) => {
+    if (!composerEditorHost(event.target)) return;
+    state.composingInComposer = false;
+    queueReconcile();
   };
 
   state.cleanup = ({ restoreText = true } = {}) => {
@@ -1955,7 +1994,7 @@
       'qq2007-left-chat-shortcut', 'qq2007-home-welcome', STYLE_ID,
     ]) byId(id)?.remove();
     for (const node of document.querySelectorAll('.qq2007-native-nav-icon, .qq2007-folder-icon, .qq2007-home-card-badge, .qq2007-home-card-copy, [data-qq2007-thread-more]')) node.remove();
-    for (const node of document.querySelectorAll('[data-qq2007-shell-host], [data-qq2007-workspace-host], [data-qq2007-row-host], [data-qq2007-topbar-host], [data-qq2007-nav], [data-qq2007-native-nav-paint-host], [data-qq2007-native-nav-glyph], [data-qq2007-folder-row], [data-qq2007-thread-row], [data-qq2007-section-heading], [data-qq2007-section-row], [data-qq2007-section], [data-qq2007-native-aside-header], [data-qq2007-native-search], [data-qq2007-native-profile-footer], [data-qq2007-native-profile-host], [data-qq2007-native-profile-paint-host], [data-qq2007-native-profile-trigger], [data-qq2007-native-help], [data-qq2007-native-update-action], [data-qq2007-native-update-slot], [data-qq2007-native-update-active], [data-qq2007-native-model-trigger], [data-qq2007-native-send-trigger], [data-qq2007-home-suggestions], [data-qq2007-home-prompt], [data-qq2007-home-card], [data-qq2007-home-native-card-body], pre[data-qq2007-code-language]')) {
+    for (const node of document.querySelectorAll('[data-qq2007-shell-host], [data-qq2007-workspace-host], [data-qq2007-row-host], [data-qq2007-topbar-host], [data-qq2007-nav], [data-qq2007-native-nav-paint-host], [data-qq2007-native-nav-glyph], [data-qq2007-folder-row], [data-qq2007-thread-row], [data-qq2007-section-heading], [data-qq2007-section-row], [data-qq2007-section], [data-qq2007-native-aside-header], [data-qq2007-native-search], [data-qq2007-native-profile-footer], [data-qq2007-native-profile-host], [data-qq2007-native-profile-paint-host], [data-qq2007-native-profile-trigger], [data-qq2007-native-help], [data-qq2007-native-update-action], [data-qq2007-native-update-slot], [data-qq2007-native-update-active], [data-qq2007-native-model-trigger], [data-qq2007-native-send-trigger], [data-qq2007-native-commit-label], [data-qq2007-home-suggestions], [data-qq2007-home-prompt], [data-qq2007-home-card], [data-qq2007-home-native-card-body], pre[data-qq2007-code-language]')) {
       delete node.dataset.qq2007ShellHost;
       delete node.dataset.qq2007WorkspaceHost;
       delete node.dataset.qq2007RowHost;
@@ -1979,6 +2018,7 @@
       delete node.dataset.qq2007NativeUpdateActive;
       delete node.dataset.qq2007NativeModelTrigger;
       delete node.dataset.qq2007NativeSendTrigger;
+      delete node.dataset.qq2007NativeCommitLabel;
       delete node.dataset.qq2007HomeSuggestions;
       delete node.dataset.qq2007HomePrompt;
       delete node.dataset.qq2007HomeCard;
@@ -1991,9 +2031,12 @@
       delete node.dataset.qq2007CodeLanguage;
     }
     if (restoreText) {
-      for (const [node, original] of state.textRenames) if (node.isConnected) node.nodeValue = original;
+      for (const [node, original] of state.textRenames) {
+        if (!node.isConnected || composerEditorHost(node)) continue;
+        node.nodeValue = original;
+      }
       for (const [element, originals] of state.attributeRenames) {
-        if (!element.isConnected) continue;
+        if (!element.isConnected || composerEditorHost(element)) continue;
         for (const [attribute, original] of originals) {
           if (original === null) element.removeAttribute(attribute);
           else element.setAttribute(attribute, original);
@@ -2017,6 +2060,8 @@
     window.removeEventListener('online', updateAgentState);
     window.removeEventListener('offline', updateAgentState);
     window.removeEventListener('resize', queueReconcile);
+    document.removeEventListener('compositionstart', onComposerCompositionStart, true);
+    document.removeEventListener('compositionend', onComposerCompositionEnd, true);
     if (state.settingsPoller) window.clearInterval(state.settingsPoller);
     state.settingsPoller = null;
     state.refreshSettingsTheme = null;
@@ -2039,20 +2084,21 @@
   }
   state.observer = new MutationObserver((mutations) => {
     let sidebarStructure = false;
+    let shouldReconcile = false;
     for (const mutation of mutations) {
       if (mutation.type === 'attributes' && mutation.attributeName === 'aria-expanded') {
         sidebarStructure = true;
-        break;
+        shouldReconcile = true;
+        continue;
       }
+      if (composerEditorMutation(mutation)) continue;
+      shouldReconcile = true;
       if (mutation.type !== 'childList') continue;
       const target = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;
-      if (target?.closest?.('aside.app-shell-left-panel')) {
-        sidebarStructure = true;
-        break;
-      }
+      if (target?.closest?.('aside.app-shell-left-panel')) sidebarStructure = true;
     }
     if (sidebarStructure) queueRetainSidebarSkin();
-    queueReconcile();
+    if (shouldReconcile) queueReconcile();
   });
   state.observer.observe(document.documentElement, {
     childList: true,
@@ -2071,6 +2117,8 @@
   };
   state.onSidebarTriggerPointerDown = onSidebarTriggerPointerDown;
   document.addEventListener('pointerdown', onSidebarTriggerPointerDown, true);
+  document.addEventListener('compositionstart', onComposerCompositionStart, true);
+  document.addEventListener('compositionend', onComposerCompositionEnd, true);
   document.addEventListener('visibilitychange', updateAgentState);
   window.addEventListener('online', updateAgentState);
   window.addEventListener('offline', updateAgentState);

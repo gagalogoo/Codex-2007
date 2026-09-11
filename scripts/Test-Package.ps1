@@ -780,6 +780,33 @@ function Test-ThreadOverlayGutterContract {
     }
 }
 
+function Test-ComposerEditorRenameExclusionContract {
+    $runtime = Get-Content -LiteralPath (Join-Path $root 'src/skin-runtime.js') -Raw -Encoding UTF8
+    $css = Get-Content -LiteralPath (Join-Path $root 'src/skin.css') -Raw -Encoding UTF8
+    foreach ($contract in @(
+        'COMPOSER_EDITOR_SELECTOR',
+        'composerEditorHost',
+        'composerEditorMutation',
+        'composingInComposer',
+        'onComposerCompositionStart',
+        'onComposerCompositionEnd',
+        'if (composerEditorHost(node)) continue',
+        'if (composerEditorHost(element)) continue',
+        'if (composerEditorMutation(mutation)) continue',
+        'if (state.composingInComposer && composerEditorHost(document.activeElement)) return',
+        'if (!node.isConnected || composerEditorHost(node)) continue',
+        'if (!element.isConnected || composerEditorHost(element)) continue',
+        'qq2007NativeCommitLabel',
+        'data-qq2007-native-commit-label'
+    )) {
+        if (-not $runtime.Contains($contract) -and -not $css.Contains($contract)) {
+            Add-Failure "Missing composer-editor rename exclusion: $contract"
+        }
+    }
+    if ($runtime -notmatch 'textarea, \[contenteditable="true"\], \.ProseMirror, \[data-placeholder\]') {
+        Add-Failure 'Composer editor denylist must include textarea, contenteditable, ProseMirror, and data-placeholder.'
+    }
+}
 function Test-SidebarNavAlignmentContract {
     $css = Get-Content -LiteralPath (Join-Path $root 'src/skin.css') -Raw -Encoding UTF8
     $runtime = Get-Content -LiteralPath (Join-Path $root 'src/skin-runtime.js') -Raw -Encoding UTF8
@@ -827,6 +854,7 @@ Test-ComposerAttachmentsContract
 Test-ConversationProcessLayoutContract
 Test-ThreadOverlayGutterContract
 Test-SidebarNavAlignmentContract
+Test-ComposerEditorRenameExclusionContract
 
 if ($failures.Count -gt 0) {
     $failures | ForEach-Object { Write-Error $_ }
