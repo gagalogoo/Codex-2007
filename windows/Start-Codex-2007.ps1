@@ -29,7 +29,10 @@ try {
 
     $oldState = Read-QQState
     if ($null -ne $oldState) {
-        Stop-QQWatcherSafely -State $oldState -ExpectedInjector ([string]$oldState.injectorPath) | Out-Null
+        $stoppedWatcher = Stop-QQWatcherSafely -State $oldState -ExpectedInjector $injector -AllowSkip
+        if (-not $stoppedWatcher) {
+            Write-Host '旧主题监视状态无法安全校验，已跳过停止监视进程，继续检测 Codex。' -ForegroundColor Yellow
+        }
     }
 
     $codex = Get-QQCodexInstall
@@ -47,7 +50,10 @@ try {
         Write-Host "检测到当前 Codex 已打开调试端口 $port，直接套用主题，不关闭窗口。" -ForegroundColor Green
     } else {
         $running = @(Get-QQCodexProcesses -Codex $codex)
-        if ($running.Count -gt 0) { Stop-QQCodexProcesses -Codex $codex -Processes $running }
+        if ($running.Count -gt 0) {
+            Write-Host '当前官方 Codex 未打开主题调试端口，将关闭后以调试端口重新启动并应用皮肤。' -ForegroundColor Yellow
+            Stop-QQCodexProcesses -Codex $codex -Processes $running
+        }
 
         $port = Get-QQFreePort -PreferredPort $PreferredPort
         # Codex 26.9+ 使用 --user-data-dir junction 会导致 CDP HTTP 挂起。

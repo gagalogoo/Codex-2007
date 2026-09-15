@@ -6,6 +6,7 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 
 ### Fixed
 
+- 启动官方 Codex（无调试端口）后再点 Codex 2007 时，不再因为上次源码目录写入的注入器路径未通过 AppData 安全校验而中止。旧监视进程已退出则忽略过期状态；若当前窗口没有主题端口，则关闭官方进程，再以回环调试端口启动并应用皮肤。
 - Start scripts no longer blindly use the first Node on PATH. Codex consoles prepend Node 20, which has no global WebSocket; they now prefer Node 22+ and fall back to Node 20 with `--experimental-websocket` so CDP injection no longer throws `WebSocket is not defined`.
 - 锁定左侧会话栏与主对话区的分割条：展开宽度固定 280px，隐藏原生 panel-resizer，并把 `--codex-sidebar-preferred-width` 同步为皮肤变量，避免输入区和消息按钮被拖偏。
 - 右侧栏改为小蓝贴顶、Gary 紧贴查找好友、搜索钉在底部；中间空档只给好友分组，两张全身图按原比例 contain，窗口拉高不再拉伸。

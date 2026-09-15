@@ -377,27 +377,49 @@ function Read-QQState {
     catch { throw '主题状态文件损坏，未执行进程操作。' }
 }
 
+function Test-QQTrustedInjectorPath {
+    param(
+        [Parameter(Mandatory = $true)][string]$Candidate,
+        [string]$ExpectedInjector
+    )
+    if ([string]::IsNullOrWhiteSpace($Candidate)) { return $false }
+    if ($ExpectedInjector -and (Test-QQSamePath -Left $Candidate -Right $ExpectedInjector)) { return $true }
+    if (Test-QQChildPath -Candidate $Candidate -Parent $script:QQStateRoot) { return $true }
+    $packageRoot = Get-QQPackageRoot
+    if (Test-QQChildPath -Candidate $Candidate -Parent $packageRoot) { return $true }
+    return $false
+}
+
 function Stop-QQWatcherSafely {
     param(
         [AllowNull()][object]$State,
-        [Parameter(Mandatory = $true)][string]$ExpectedInjector
+        [Parameter(Mandatory = $true)][string]$ExpectedInjector,
+        [switch]$AllowSkip
     )
     if ($null -eq $State -or -not $State.watcherPid) { return $true }
-    if (-not (Test-QQChildPath -Candidate ([string]$State.injectorPath) -Parent $script:QQStateRoot) -or
-        -not (Test-QQSamePath -Left ([string]$State.injectorPath) -Right $ExpectedInjector)) {
-        throw '状态中的注入器路径未通过安全校验，未停止任何进程。'
-    }
+
+    # 监视进程已经不在时，过期状态里的注入器路径不得阻断启动或恢复。
     $processId = [int]$State.watcherPid
     $process = Get-CimInstance Win32_Process -Filter "ProcessId = $processId" -ErrorAction SilentlyContinue
     if ($null -eq $process) { return $true }
+
+    $injectorPath = [string]$State.injectorPath
+    if (-not (Test-QQTrustedInjectorPath -Candidate $injectorPath -ExpectedInjector $ExpectedInjector)) {
+        if ($AllowSkip) { return $false }
+        throw '状态中的注入器路径未通过安全校验，未停止任何进程。'
+    }
     $nodePath = [string]$process.ExecutablePath
     if (-not $nodePath) {
         try { $nodePath = [string](Get-Process -Id $processId -ErrorAction Stop).Path }
-        catch { throw '无法验证主题监视进程，未停止。' }
+        catch {
+            if ($AllowSkip) { return $false }
+            throw '无法验证主题监视进程，未停止。'
+        }
     }
     if (-not (Test-QQSamePath -Left $nodePath -Right ([string]$State.nodePath)) -or
-        [string]$process.CommandLine -notmatch [regex]::Escape([string]$State.injectorPath) -or
+        [string]$process.CommandLine -notmatch [regex]::Escape($injectorPath) -or
         [string]$process.CommandLine -notmatch "--port\s+$([int]$State.port)(?:\s|$)") {
+        if ($AllowSkip) { return $false }
         throw '主题监视进程身份校验失败，未停止。'
     }
     Stop-Process -Id $processId -ErrorAction Stop

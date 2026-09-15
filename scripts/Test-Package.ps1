@@ -807,6 +807,42 @@ function Test-ComposerEditorRenameExclusionContract {
         Add-Failure 'Composer editor denylist must include textarea, contenteditable, ProseMirror, and data-placeholder.'
     }
 }
+function Test-OfficialRelaunchContract {
+    $common = Get-Content -LiteralPath (Join-Path $root 'windows/Common.ps1') -Raw -Encoding UTF8
+    $start = Get-Content -LiteralPath (Join-Path $root 'windows/Start-Codex-2007.ps1') -Raw -Encoding UTF8
+    foreach ($contract in @(
+        'function Test-QQTrustedInjectorPath',
+        '[switch]$AllowSkip',
+        'if ($null -eq $process) { return $true }',
+        'if ($AllowSkip) { return $false }',
+        '状态中的注入器路径未通过安全校验，未停止任何进程。'
+    )) {
+        if (-not $common.Contains($contract)) {
+            Add-Failure "Missing watcher safety contract: $contract"
+        }
+    }
+    if ($common -notmatch 'Get-CimInstance Win32_Process -Filter "ProcessId = \$processId"') {
+        Add-Failure 'Stop-QQWatcherSafely must inspect the watcher process before path failure.'
+    }
+    $processCheck = $common.IndexOf('if ($null -eq $process) { return $true }')
+    $pathThrow = $common.IndexOf('状态中的注入器路径未通过安全校验，未停止任何进程。')
+    if ($processCheck -lt 0 -or $pathThrow -lt 0 -or $processCheck -gt $pathThrow) {
+        Add-Failure 'Stale watcher PID must be ignored before injector path validation throws.'
+    }
+    foreach ($contract in @(
+        'Stop-QQWatcherSafely -State $oldState -ExpectedInjector $injector -AllowSkip',
+        'Find-QQLiveThemeEndpoint -Codex $codex',
+        'Stop-QQCodexProcesses -Codex $codex -Processes $running',
+        '当前官方 Codex 未打开主题调试端口，将关闭后以调试端口重新启动并应用皮肤。',
+        '--remote-debugging-address=127.0.0.1',
+        '--remote-debugging-port=$port'
+    )) {
+        if (-not $start.Contains($contract)) {
+            Add-Failure "Missing official relaunch contract: $contract"
+        }
+    }
+}
+
 function Test-SidebarNavAlignmentContract {
     $css = Get-Content -LiteralPath (Join-Path $root 'src/skin.css') -Raw -Encoding UTF8
     $runtime = Get-Content -LiteralPath (Join-Path $root 'src/skin-runtime.js') -Raw -Encoding UTF8
@@ -855,6 +891,7 @@ Test-ConversationProcessLayoutContract
 Test-ThreadOverlayGutterContract
 Test-SidebarNavAlignmentContract
 Test-ComposerEditorRenameExclusionContract
+Test-OfficialRelaunchContract
 
 if ($failures.Count -gt 0) {
     $failures | ForEach-Object { Write-Error $_ }
