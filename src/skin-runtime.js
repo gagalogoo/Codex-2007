@@ -782,6 +782,14 @@
     if (Date.now() < state.sidebarAnimatingUntil) return;
     aside.style.removeProperty('width');
     document.documentElement.style.setProperty('--codex-sidebar-preferred-width', 'var(--qq2007-left-width)');
+    const inner = aside.querySelector(':scope > div.max-w-full');
+    if (inner) {
+      // Native React keeps the last splitter width on this wrapper. Force it
+      // down to the skin panel so trailing row actions stay on-screen.
+      inner.style.setProperty('min-width', '0px', 'important');
+      inner.style.setProperty('width', '100%', 'important');
+      inner.style.setProperty('max-width', '100%', 'important');
+    }
   };
 
   const findComposer = () => {
@@ -1562,8 +1570,16 @@
       delete button.dataset.qq2007NativeNavGlyph;
       for (const nativeSvg of button.querySelectorAll('svg')) {
         let glyphSlot = nativeSvg;
-        const parent = nativeSvg.parentElement;
-        if (parent && parent !== button && parent.childElementCount === 1) glyphSlot = parent;
+        let parent = nativeSvg.parentElement;
+        while (parent && parent !== button) {
+          const className = String(parent.className || '');
+          const isLeadingSlot = parent.classList.contains('icon-leading-slot')
+            || /(?:^|\s)icon-leading-slot(?:\s|$)/.test(className)
+            || (parent.classList.contains('w-4') && parent.classList.contains('shrink-0'));
+          if (parent.childElementCount === 1 || isLeadingSlot) glyphSlot = parent;
+          if (isLeadingSlot) break;
+          parent = parent.parentElement;
+        }
         glyphSlot.dataset.qq2007NativeNavGlyph = 'true';
       }
       if (!button.querySelector(':scope > .qq2007-native-nav-icon')) {

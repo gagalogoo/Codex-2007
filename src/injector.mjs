@@ -771,6 +771,21 @@ const verifyExpression = `(() => {
   const preferredSidebarWidthSynced = settingsSurface || leftAsideCollapsed || (
     document.documentElement.style.getPropertyValue('--codex-sidebar-preferred-width').trim() === 'var(--qq2007-left-width)'
   );
+  const innerShell = leftAside?.querySelector(':scope > div.max-w-full');
+  const innerShellRect = innerShell?.getBoundingClientRect();
+  const leftAsideRect = leftAside?.getBoundingClientRect();
+  const sidebarInnerFitsPanel = settingsSurface || leftAsideCollapsed || Boolean(
+    innerShellRect
+    && leftAsideRect
+    && innerShellRect.width <= leftAsideRect.width + 1
+  );
+  const sidebarActionNodes = Array.from(document.querySelectorAll(
+    'aside.app-shell-left-panel [data-qq2007-thread-rail="true"], aside.app-shell-left-panel [data-qq2007-section-row="true"] button[aria-label], aside.app-shell-left-panel [class*="nav-section-title"] button[aria-label]'
+  ));
+  const sidebarRowActionsInsidePanel = settingsSurface || leftAsideCollapsed || !leftAsideRect || sidebarActionNodes.length === 0 || sidebarActionNodes.every((node) => {
+    const rectangle = node.getBoundingClientRect();
+    return rectangle.width <= 0 || rectangle.right <= leftAsideRect.right + 2;
+  });
   const rightPanelEl = document.getElementById('qq2007-right-panel');
   const friendSearchEl = rightPanelEl?.querySelector('.qq2007-friend-search');
   const friendStageEl = rightPanelEl?.querySelector('.qq2007-friend-stage');
@@ -838,6 +853,25 @@ const verifyExpression = `(() => {
     .filter((rect) => rect.width >= 12 && rect.height >= 12 && rect.left < 80)
     .map((rect) => Math.round(rect.left));
   const sidebarNavIconsAligned = navIconLefts.length < 2 || navIconLefts.every((left) => Math.abs(left - navIconLefts[0]) <= 1);
+  const sidebarNavIconTextTight = Array.from(document.querySelectorAll('aside.app-shell-left-panel [data-qq2007-nav], aside.app-shell-left-panel #qq2007-left-chat-shortcut'))
+    .filter((button) => {
+      const rect = button.getBoundingClientRect();
+      return rect.height >= 20 && rect.width > 40;
+    })
+    .every((button) => {
+      const icon = button.querySelector(':scope > .qq2007-native-nav-icon');
+      if (!icon) return false;
+      const iconRect = icon.getBoundingClientRect();
+      if (iconRect.width < 12 || iconRect.height < 12) return false;
+      const label = button.querySelector('.text-fade-truncate')
+        || Array.from(button.querySelectorAll(':scope > span, span')).find((node) => {
+          const text = (node.textContent || '').replace(/\\s+/g, ' ').trim();
+          return Boolean(text) && !node.querySelector('svg, img, .icon-leading-slot');
+        });
+      if (!label) return false;
+      const gap = label.getBoundingClientRect().left - iconRect.right;
+      return gap >= 0 && gap <= 10;
+    });
   const sampleThreadRows = Array.from(document.querySelectorAll('[data-qq2007-thread-row="true"]'));
   const threadRowIconTextTight = sampleThreadRows.length === 0 || sampleThreadRows.every((row) => {
     const style = getComputedStyle(row);
@@ -893,6 +927,8 @@ const verifyExpression = `(() => {
     && (homeSurfaceDetected || mainTitleBottomAlignedWithConversation)
     && sidebarSplitLocked
     && preferredSidebarWidthSynced
+    && sidebarInnerFitsPanel
+    && sidebarRowActionsInsidePanel
     && friendSearchPinnedToBottom
     && friendStageAboveSearch
     && partnerFriendRowReady
@@ -900,6 +936,7 @@ const verifyExpression = `(() => {
     && composerAttachmentsClickable
     && nativeOverlayLeavesLayout
     && sidebarNavIconsAligned
+    && sidebarNavIconTextTight
     && threadRowIconTextTight
     && conversationScrollNotNested
     && conversationJumpReady
@@ -1036,6 +1073,8 @@ const verifyExpression = `(() => {
       mainSurfaceLeft: mainSurfaceRect ? Math.round(mainSurfaceRect.left) : null,
       sidebarSplitLocked,
       preferredSidebarWidthSynced,
+      sidebarInnerFitsPanel,
+      sidebarRowActionsInsidePanel,
       friendSearchPinnedToBottom,
       friendStageAboveSearch,
       partnerFriendRowReady,
@@ -1043,6 +1082,7 @@ const verifyExpression = `(() => {
       composerAttachmentsClickable,
       nativeOverlayLeavesLayout,
       sidebarNavIconsAligned,
+      sidebarNavIconTextTight,
       threadRowIconTextTight,
     },
     nodes,

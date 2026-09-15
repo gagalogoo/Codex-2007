@@ -259,6 +259,10 @@ html.codex-2007 main.main-surface [class*="cursor-col-resize"] {
 html.codex-2007 aside.app-shell-left-panel > div.max-w-full {
   background: #f4f9fd !important;
   box-sizing: border-box;
+  /* Native Codex writes the last splitter width as inline min-width/width
+   * (often ~400px). Without overriding min-width, the 280px skin panel clips
+   * pin/archive/more and section actions that sit at absolute end-0. */
+  min-width: 0 !important;
   max-width: 100% !important;
   padding-bottom: calc(56px + var(--qq2007-update-height, 0px)) !important;
   padding-top: 36px !important;
@@ -288,8 +292,11 @@ html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-profile-paint-hos
 html.codex-2007 aside.app-shell-left-panel #app-shell-sidebar {
   contain: none !important;
   isolation: auto !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
   overflow: visible !important;
   padding-top: 0 !important;
+  width: 100% !important;
 }
 
 html.codex-2007 aside.app-shell-left-panel [data-qq2007-native-profile-footer="true"] {
@@ -605,11 +612,21 @@ html.codex-2007 aside.app-shell-left-panel #qq2007-left-chat-shortcut.qq2007-inj
 
 html.codex-2007 aside.app-shell-left-panel [data-qq2007-nav] svg,
 html.codex-2007 aside.app-shell-left-panel [data-qq2007-nav] [data-qq2007-native-nav-glyph="true"],
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-nav] .icon-leading-slot,
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-nav] .w-4.shrink-0.items-center.justify-center,
 html.codex-2007 aside.app-shell-left-panel [data-qq2007-nav] img:not(.qq2007-native-nav-icon) {
   display: none !important;
+  flex: 0 0 0px !important;
   height: 0 !important;
+  margin: 0 !important;
+  min-width: 0 !important;
   overflow: hidden !important;
+  padding: 0 !important;
   width: 0 !important;
+}
+
+html.codex-2007 aside.app-shell-left-panel [data-qq2007-nav] > .flex.min-w-0.items-center {
+  gap: 0 !important;
 }
 
 /* Codex groups “New task” and its trailing plus action inside a native rounded
